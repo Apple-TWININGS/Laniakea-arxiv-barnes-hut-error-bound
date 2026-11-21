@@ -242,7 +242,7 @@ $(\hat y\cdot\nabla)S_n=-(n+1)|y|^n r^{-(n+2)}P_{n+1}$, so $|\nabla S_n|\le(n+1)
 attained at $\hat y=\pm\hat z$. Applying the same argument one order up and reducing the resulting
 tensor with the Legendre equation gives the second-derivative constant exactly:
 $|\nabla^2S_n|_F\le\sqrt{3/2}\,(n+1)(n+2)\,|y|^n r^{-(n+3)}$, also sharp, the $\sqrt{3/2}$
-being an exact eigenvalue ratio and not a fit (Appendix~\ref{app:secondorder}). Both constants are checked numerically against finite differences for $l\le12$ (\texttt{scripts/\_hessian\_constant.py}, agreement to $2.8\times10^{-7}$), and the bound built on them is tested where a too-small constant would fail loudly: \textbf{zero violations over $13{,}312$ sampled nodes} --- six float64 runs at $2.3$M and one at $16.7$M, under all three acceptance criteria (Appendix~\ref{app:secondorder}). \emph{An earlier revision stated a symbolic verification to $n=40$ by a script that is not in the repository; we do not assert it.}
+being an exact eigenvalue ratio and not a fit (Appendix~\ref{app:secondorder}). Both constants are checked numerically against finite differences for $l\le12$ (\texttt{scripts/\allowbreak \_\allowbreak hessian\_\allowbreak constant.\allowbreak py}, agreement to $2.8\times10^{-7}$), and the bound built on them is tested where a too-small constant would fail loudly: \textbf{zero violations over $13{,}312$ sampled nodes} --- six float64 runs at $2.3$M and one at $16.7$M, under all three acceptance criteria (Appendix~\ref{app:secondorder}). \emph{An earlier revision stated a symbolic verification to $n=40$ by a script that is not in the repository; we do not assert it.}
 
 \emph{What remains assumed.} The factor $(2p+5)/(1-\theta)$ is explicit, but the $\lesssim$
 hides (i)~the angular-gradient constant and (ii)~the moment bound
@@ -384,7 +384,7 @@ $\mu_l^2=(2l+1)^2(l+1)$. The $l{=}0$ case is exact and checkable by hand: $\Lamb
 $\|\nabla^2 r^{-1}\|_F=\sqrt6/r^3$ for $F_0\equiv1$. Note $\Lambda_0\ne0$: an exterior solid harmonic
 is harmonic, so only its \emph{trace} vanishes, not its Hessian. Both constants were verified
 independently by fourth-order finite differences of $h_{lm}$ over the full real basis for $l\le12$,
-agreeing with the closed forms to $2.8\times10^{-7}$ (\texttt{scripts/\_hessian\_constant.py}).
+agreeing with the closed forms to $2.8\times10^{-7}$ (\texttt{scripts/\allowbreak \_\allowbreak hessian\_\allowbreak constant.\allowbreak py}).
 
 \subsection{The cell bound, and its geometry dependence}
 
@@ -434,6 +434,7 @@ $\sqrt{3/2}(l+1)(l+2)r^{-(l+3)}$, which is the maximum over the \emph{zonal} har
 operator norm on general harmonics: it sits \emph{below} the measured remainder, so it was never a
 bound. It is kept on the record rather than deleted. All entries measured, none fitted.}
 \label{tab:secondorder}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{llrrrr}
 \toprule
 cell & retained & $r/R$ & bound (harmonic) / meas. & bound (isotropic) / meas. & earlier (non-)bound / meas. \\
@@ -449,6 +450,7 @@ slab $1/8$ & $l\le2$ & 1.5  & 41.71 & 476.56 & 8.77 \\
 slab $1/8$ & $l\le2$ & 32.0 & 31.78 & 1762.80 & 7.72 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \noindent\textbf{Why the isotropic form is unusable, and what that says about symmetric cells.} The
@@ -502,7 +504,7 @@ median it inflates the measured remainder by $13.9\times$, which simultaneously 
 the looseness and invents violations. Concretely, the identical $2.3$M configuration in float32
 reports \textbf{two violations} and a looseness of $32.6\times$; in float64 the same run reports
 \textbf{none} and $425.6\times$ --- with every bound-side quantity agreeing to six significant
-figures and the tail share bit-identical. \texttt{scripts/error\_law\_bound\_sampled.py
+figures and the tail share bit-identical. \texttt{scripts/\allowbreak error\_\allowbreak law\_\allowbreak bound\_\allowbreak sampled.\allowbreak py
 --field-dtype float64} is the committed configuration; the float32 numbers are kept in
 Appendix~\ref{app:provenance} as the reason the flag exists. That is
 why the same machinery is paired in
@@ -550,15 +552,16 @@ caching result is a statement about repeated calls on a \emph{static} particle s
 \begin{table}[h]
 \centering
 \caption{Forward-pass time of the HMMP operator versus $N$ at fixed configuration
-(\texttt{scripts/scaling.py}), post-D8, one A800. Over a $20\times$ range in $N$ the time grows
+(\texttt{scripts/\allowbreak scaling.\allowbreak py}), post-D8, one A800. Over a $20\times$ range in $N$ the time grows
 $47.79\times$. We do \textbf{not} read an exponent from this: the same configuration on CPU grows
 $26.68\times$ over the same range, so the ratio is device-dependent and the small-$N$ end is
 overhead-dominated. The admitted far-interaction count --- measured by the two-arm comparison of
-\texttt{scripts/compare\_d8\_cost\_ab.py}, which prints the two reference ratios beside it --- grows
+\texttt{scripts/\allowbreak compare\_\allowbreak d8\_\allowbreak cost\_\allowbreak ab.\allowbreak py}, which prints the two reference ratios beside it --- grows
 $71.0\times$ over the same range, i.e.\ faster than $O(N\log N)$, because the benchmark clouds are
 not self-similar. Four points cannot separate these, so we report the measurements rather than a
 fitted exponent.}
 \label{tab:time}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrr}
 \toprule
 $N$ & HMMP time (s) & ratio vs $N{=}1000$ \\
@@ -569,6 +572,7 @@ $N$ & HMMP time (s) & ratio vs $N{=}1000$ \\
 20{,}000 & 0.726464 & 47.792956 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \noindent The pre-D8 table gave $0.205239\to4.155135$\,s, a $20.25\times$ growth: the geometry fix
@@ -586,10 +590,11 @@ measured where the two meet.
 \begin{table}[h]
 \centering
 \caption{Peak CUDA allocation for a single forward pass, hidden $64$, interaction list
-\emph{uncapped}, post-D8, one A800 (\texttt{scripts/benchmark\_memory.py}). The $2.3$M row failed
+\emph{uncapped}, post-D8, one A800 (\texttt{scripts/\allowbreak benchmark\_\allowbreak memory.\allowbreak py}). The $2.3$M row failed
 under the default caching allocator and completed at $71.42$\,GB under
 \texttt{expandable\_segments:True}; it is the only row measured with that setting. Pre-D8 the same
 series ended at $11794.97$\,MB.}\label{tab:mem}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lr}
 \toprule
 $N$ & Peak memory (MB) \\
@@ -603,6 +608,7 @@ $N$ & Peak memory (MB) \\
 2{,}300{,}000 & \textbf{71416.82}$^{\dagger}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \begin{table}[h]
@@ -610,6 +616,7 @@ $N$ & Peak memory (MB) \\
 \caption{Same measurement with the interaction list \emph{capped} at $2.5$M entries, post-D8. This is
 a different configuration from Table~\ref{tab:mem}, not a continuation of it; the cap is what the
 single-device $2.3$M runs used. Pre-D8 the same series ended at $3780.78$\,MB.}\label{tab:memdeep}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lr}
 \toprule
 $N$ & Peak memory (MB), capped \\
@@ -623,6 +630,7 @@ $N$ & Peak memory (MB), capped \\
 2{,}300{,}000 & 11351.59 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \noindent The capped series is not monotone in $N$ between $50$k and $100$k ($723.91$ against
@@ -630,8 +638,8 @@ $694.13$); the difference is $4\%$ in two independent processes and we read it a
 rather than as a real inversion, but it is small enough to record rather than smooth. $^{\dagger}$The
 uncapped $2.3$M row requires \texttt{PYTORCH\_CUDA\_ALLOC\_CONF=expandable\_segments:True}: under the
 default allocator the run dies with CUDA out of memory after $72.89$\,GiB is in use
-(\texttt{outputs/memory\_hmmp\_2M3\_uncapped\_postd8.log}, and the passing
-\texttt{expandable\_segments} run is \texttt{outputs/memory\_hmmp\_2M3\_uncapped\_expseg\_postd8.json}).
+(\texttt{outputs/\allowbreak memory\_\allowbreak hmmp\_\allowbreak 2M3\_\allowbreak uncapped\_\allowbreak postd8.\allowbreak log}, and the passing
+\texttt{expandable\_segments} run is \texttt{outputs/\allowbreak memory\_\allowbreak hmmp\_\allowbreak 2M3\_\allowbreak uncapped\_\allowbreak expseg\_\allowbreak postd8.\allowbreak json}).
 So the $2.3$M claim survives
 the geometry fix, but with much less margin than before: the uncapped configuration is inside one
 $80$\,GB device only just, while the capped one is comfortable at $11.35$\,GB. That is a feasibility
@@ -643,6 +651,7 @@ Synthetic lognormal clouds, post-D8, $p{=}0$ over $p{=}1$, multiplied by $\theta
 over $N\in\{2{,}000,8{,}000,32{,}000\}$:
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrrrr}
 \toprule
 $\theta$ & 0.15 & 0.20 & 0.25 & 0.30 & 0.40 & 0.50 \\
@@ -651,10 +660,11 @@ force & 2.532 & 2.474 & 2.402 & 2.352 & 2.336 & 2.249 \\
 tidal & 1.836 & 1.839 & 1.759 & 1.743 & 1.740 & 1.726 \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Over $\theta\le0.5$: force $2.391$, scatter $4.3\%$; tidal $1.774$, scatter $2.9\%$.
-Artifact \texttt{outputs/\allowbreak multipole\_order\_sweep\_\allowbreak tidal\_fixed.json}.
+Artifact \texttt{outputs/\allowbreak multipole\_order\_sweep\_\allowbreak tidal\_fixed.\allowbreak json}.
 
 Section~\ref{sec:order} reports that the measured order-shift product depends on the particle
 distribution, and this appendix gives the measurement behind the qualification that a bound is a
@@ -664,6 +674,7 @@ $\theta\in[0.15,0.5]$) we evaluate the $p{=}0$ and $p{=}1$ remainders at three l
 of $p{=}0$ to $p{=}1$ multiplied by $\theta$:
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrr}
 \toprule
 level & synthetic & CAMELS & CAMELS drift \\
@@ -673,6 +684,7 @@ coherent aggregate over cells & $1.193 \pm 4.0\%$ & $1.037 \pm 22.4\%$ & $1.34 \
 per-node relative mean & $1.275 \pm 3.7\%$ & $1.040 \pm 22.7\%$ & $1.36 \to 0.80$ ($\times1.69$) \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Each cell contribution is the direct sum over \emph{all descendant particles} of the
@@ -682,8 +694,8 @@ On the controlled cloud the three levels agree and are constant. On the real sna
 drift, the per-interaction level least ($\times1.30$) and the aggregate most ($\times1.65$), so the
 drift is not purely an artefact of summing vectors coherently, but it is also not a measurement of a
 per-interaction constant: each of the three is a weighted average over the admitted-cell
-distribution. Reproduce with \texttt{scripts/diagnose\_aggregate\_vs\_percell.py}
-(\texttt{outputs/agg\_vs\_percell\_*\.json}).
+distribution. Reproduce with \texttt{scripts/\allowbreak diagnose\_\allowbreak aggregate\_\allowbreak vs\_\allowbreak percell.\allowbreak py}
+(\texttt{outputs/\allowbreak agg\_\allowbreak vs\_\allowbreak percell\_\allowbreak *\.\allowbreak json}).
 
 \begin{table}[h]
 \centering
@@ -697,6 +709,7 @@ product to the smallest. The synthetic value is $2.4$ for the force and $1.8$ fo
 $2.3$M}: its scatter grows to $53.9\%$ and its product moves over an $8.1\times$ range. What holds at
 every scale is the \emph{sign} --- the $p{=}0$/$p{=}1$ ratio exceeds one everywhere ($4.0$--$24.5$
 force, $1.4$--$12.1$ tidal).}\label{tab:camelsorder}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrrr}
 \toprule
 $N$ & force product & force scatter & force range & tidal product & tidal scatter \\
@@ -708,9 +721,11 @@ $2.3\times10^{6}$ & $3.318$ & $23.5\%$ & $1.86\times$ & $1.121$ & $53.9\%$ \\
 \multicolumn{6}{l}{\footnotesize tidal range: $1.10\times$ / $4.09\times$ / $8.10\times$ at the three scales} \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
-\noindent Script \texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.py}, artifacts
+\begin{sloppypar}
+\noindent Script \texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.\allowbreak py}, artifacts
 \texttt{order\_sweep\_tidal\_camels\_n\allowbreak\{100000,1000000,2300000\}\_\allowbreak postd8.json}, whose own summary fields
 (\texttt{ratio\_times\_theta\_mean\_*}, \texttt{...\_rel\_scatter\_*}) are the source of the numbers
 above. Two remarks a reader should carry away. First, the tidal scatter \emph{grows} with $N$
@@ -719,6 +734,7 @@ ordering between the two derivatives that holds on controlled clouds and at $10^
 scale this paper is about. Second, at $2.3$M the tidal product at the tightest opening
 ($\theta=0.15$) is $0.208$, i.e.\ the quadrupole is worth only a factor $1.4$ there against $12.1$ at
 the same $\theta$ for $N=10^{5}$: the tidal order shift is not merely noisier at scale, it is weaker.
+\end{sloppypar}
 
 \noindent\textbf{The single-cell constant, and whether it survives a holdout.} Section~\ref{sec:order}
 asks the aggregate version of this question. The single-cell version is sharper and answerable: take
@@ -730,7 +746,7 @@ line at the worst sample, and it reproduces exactly ($C=5.520$ tidal, $8.897$ fo
 samples, binding geometry \texttt{G7\_shell}).
 
 So we calibrated on one set and evaluated on another
-(\texttt{scripts/\allowbreak e7\_holdout\_bound.py}, \texttt{outputs/\allowbreak e7\_holdout\_bound.json}). Two splits, and
+(\texttt{scripts/\allowbreak e7\_holdout\_bound.\allowbreak py}, \texttt{outputs/\allowbreak e7\_holdout\_bound.\allowbreak json}). Two splits, and
 they disagree with each other, which is the point.
 
 \begin{table}[h]
@@ -741,6 +757,7 @@ $C$ is calibrated on the other nine geometries and the inequality is then evalua
 one. Fold B calibrates on two random seeds of the three stochastic families and evaluates on a third,
 unseen seed. ``inflation'' is the factor by which $C$ must be raised to cover the held-out data, so
 $<1$ means the calibration was already conservative there.}\label{tab:e7holdout}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
 held-out set & tidal infl. & tidal viol. & force infl. & force viol. \\
@@ -759,6 +776,7 @@ held-out set & tidal infl. & tidal viol. & force infl. & force viol. \\
 fresh seed, stochastic families only & $0.43\times$ & $0/180$ & $0.23\times$ & $0/180$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \noindent Three readings. \textbf{(i) The constant is carried by one geometry.} Nine of ten held-out
@@ -780,7 +798,7 @@ We list here the defects that bear on what this paper reports. Several earlier b
 --- misnamed artifact keys, a table transcribed from an older run, an inert seed control in training
 scripts that no result here uses --- are not
 about this paper's claims, and are recorded instead in the repository
-(\texttt{docs/PROVENANCE.md}), which carries the full evidence chain for every number.
+(\texttt{docs/\allowbreak PROVENANCE.\allowbreak md}), which carries the full evidence chain for every number.
 
 \noindent\textbf{(D2) The quadrupole far-field term was wrong, and is fixed.} It was implemented as
 $0.5\,(\hat r^{\top}D\hat r)\,\hat r/r^{3}$, which has the wrong radial power, omits the $D\hat r$
@@ -808,7 +826,7 @@ force used the quadrupole. Consequently the earlier statement that the tidal err
 the force error was an artefact: the corrected factor is $5$--$6\times$, and the leading error's
 $\theta$-power is $3.56$ (force: $3.23$), so the ``anomalous'' second-derivative $\theta$-scaling
 claimed in an earlier draft does not exist. One canonical reference now exists
-(\texttt{src/laniakea\_hmmp/models/exact\_field.py}), pinned to the autograd Jacobian by eleven tests,
+(\texttt{src/\allowbreak laniakea\_\allowbreak hmmp/\allowbreak models/\allowbreak exact\_\allowbreak field.\allowbreak py}), pinned to the autograd Jacobian by eleven tests,
 and the operator carries both derivatives including the quadrupole term. Force numbers are unaffected:
 the re-run reproduced every published force error bit-for-bit.
 
@@ -822,7 +840,7 @@ exists. \textbf{We have now read the 1999 paper, and it does not contain one: it
 \emph{potential} remainder only.} The five remainder statements, their equation numbers, the basis
 difference and the three reasons they do not differentiate into ours are set out at the head of
 Appendix~\ref{app:secondorder}, which is where the comparison belongs; the exhaustive probe counts are
-in \texttt{docs/PROVENANCE.md} \S4d. What remains unread is the literature that \emph{follows} that
+in \texttt{docs/\allowbreak PROVENANCE.\allowbreak md} \S4d. What remains unread is the literature that \emph{follows} that
 line rather than the line's origin.
 
 The five further candidates that an earlier access failure had left unread have also since been
@@ -866,14 +884,14 @@ shallow tree admits few far cells; and the moment aggregation reads particle mem
 cell geometry, so nothing in the suite ever compared a cell centre against its contents. The
 invariant that catches it is independent of any multipole approximation --- every cell's particles
 must lie inside $[\text{centre}\pm\text{size}/2]$ --- and is now asserted by
-\texttt{tests/test\_cell\_geometry.py}, which also asserts that the pre-fix construction still
+\texttt{tests/\allowbreak test\_\allowbreak cell\_\allowbreak geometry.\allowbreak py}, which also asserts that the pre-fix construction still
 \emph{reproduces} the defect so that artifacts predating the fix stay interpretable. Every
 \emph{accuracy} number in this paper is post-D8; \texttt{legacy\_geometry=True} restores the old
 behaviour. \textbf{The two cost tables are the exception}: the peak-memory and forward-pass-time
 series resolve to artifacts that carry no post-D8 marker and are not part of the released set
-(\texttt{outputs/memory\_hmmp\_2M3\_*.json}, \texttt{outputs/scaling.json}), so their post-fix
+(\texttt{outputs/\allowbreak memory\_\allowbreak hmmp\_\allowbreak 2M3\_\allowbreak *.\allowbreak json}, \texttt{outputs/\allowbreak scaling.\allowbreak json}), so their post-fix
 status is not established here. The geometry correction changes the tree, so both will move.
-\texttt{docs/PROVENANCE.md} \S3.5 tracks them.
+\texttt{docs/\allowbreak PROVENANCE.\allowbreak md} \S3.5 tracks them.
 
 \subsection{Scope of the D8 correction: what is post-fix, and what is not}
 \label{app:d8scope}
@@ -917,6 +935,7 @@ $N=600$, $Q=256$, $p{=}0$, same particles, same tree and same operator, only the
 changed:
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
 & \multicolumn{2}{c}{force rel.\ err} & \multicolumn{2}{c}{tidal rel.\ err} \\
@@ -927,6 +946,7 @@ geo     & $1.32\times10^{-4}$ & $4.70\times10^{-4}$ & $3.26\times10^{-3}$ & $9.2
 surface & $\mathbf{3.73\times10^{-5}}$ & $\mathbf{8.38\times10^{-5}}$ & $\mathbf{1.24\times10^{-3}}$ & $\mathbf{2.26\times10^{-3}}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Two things follow. \textbf{(i) The published criterion is the better of the two single-point
@@ -941,7 +961,7 @@ is due to Warren \& Salmon (1993), Dehn\-en (2002) advertises a simplified such 
 ships a sphere--box surface test. Our contribution here is the measurement under matched conditions,
 not the criterion.
 
-These numbers regenerate with \texttt{scripts/\_ab\_cell\_centres.py}, which reports all three
+These numbers regenerate with \texttt{scripts/\allowbreak \_\allowbreak ab\_\allowbreak cell\_\allowbreak centres.\allowbreak py}, which reports all three
 criteria on both geometries and prints the pre-fix comparison alongside.
 
 \noindent\textbf{Table~\ref{tab:eigen}: the physical metrics behind Section~\ref{sec:physics}.}
@@ -957,13 +977,14 @@ boundary effect.
 \centering
 \caption{Eigenvalue error and principal-axis misalignment (p95, well-separated nodes only) of the
 approximate tidal tensor against the exact one, on the real CAMELS snapshot, $Q=4096$, seed $0$,
-recomputed with the post-defect-D8 tree: \texttt{scripts/eval\_tidal\_eigenmetrics.py}. ``com'' is the
+recomputed with the post-defect-D8 tree: \texttt{scripts/\allowbreak eval\_\allowbreak tidal\_\allowbreak eigenmetrics.\allowbreak py}. ``com'' is the
 centre-of-mass acceptance test, ``cell'' the distance-to-cell test. \textbf{The two criteria now agree
 to a few per cent, and neither fails}: at $\theta=0.70$ --- well past the classical safety line
 $\theta<1/\sqrt{3}$ --- the worst misalignment anywhere in the table is $1.3^{\circ}$. An earlier
 revision carried pre-D8 numbers under a \texttt{com} label that the generating script could not then
 produce, because its \texttt{--opening-mode} choices omitted \texttt{com} and defaulted to
 \texttt{center}; those rows are replaced.}\label{tab:eigen}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrrr}
 \toprule
 $N$ & $\theta$ & opening & $p$ & eig.\ rel.\ err & p95 axis (deg) \\
@@ -979,6 +1000,7 @@ $100$k & 0.7 & cell & 0 & $1.17\times10^{-2}$ & 1.31 \\
 $100$k & 0.7 & cell & 1 & $5.66\times10^{-3}$ & 0.67 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \begin{table}[h]
@@ -989,6 +1011,7 @@ tensor is $1$ or $2$ --- see Section~\ref{sec:physics}) differs from the exact o
 as Table~\ref{tab:eigen}. Post-D8 the worst rate in the table is $1.4\%$, and at fixed
 $\theta=0.70$ the acceptance test no longer separates the two criteria --- what used to look like a
 criterion effect was defect~D8.}\label{tab:flip}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
 $N$ & $\theta$ & opening & $p$ & class flip \\
@@ -1004,6 +1027,7 @@ $100$k & 0.7 & cell & 0 & $1.39\%$ \\
 $100$k & 0.7 & cell & 1 & $0.71\%$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \section{The acceptance criterion on dynamically hard scenes}\label{app:scenes}
@@ -1016,6 +1040,7 @@ and close encounters. $N=600$ ($20{,}000$ for the lognormal), $Q=256$, three que
 against the brute-force reference.
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
 scene & heaviest-particle mass share & \multicolumn{3}{c}{first $\theta$ at which the test fails} \\
@@ -1028,6 +1053,7 @@ binary\_star          & $30.1\%$ & none $\le1.20$ & $\mathbf{1.20}$ & none $\le1
 globular\_cluster     & $45.5\%$ & $0.90$ & none $\le1.20$ & none $\le1.20$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Three readings.
@@ -1088,9 +1114,9 @@ every enclosing cell sits near the centre and ${\rm size}/d$ is large, so those 
 What matters is a cell whose expansion centre lands close to a query particle while the cell stays
 large, which needs an off-centre concentration rather than merely a concentrated one.
 
-\noindent Artifact: \texttt{outputs/d2\_scene\_threshold\_sweep.json};
-scripts \texttt{scripts/d2\_scene\_threshold\_sweep.py},
-\texttt{scripts/d2\_mass\_concentration\_threshold.py}, \texttt{scripts/\_d2\_trace\_globular.py}.
+\noindent Artifact: \texttt{outputs/\allowbreak d2\_\allowbreak scene\_\allowbreak threshold\_\allowbreak sweep.\allowbreak json};
+scripts \texttt{scripts/\allowbreak d2\_\allowbreak scene\_\allowbreak threshold\_\allowbreak sweep.\allowbreak py},
+\texttt{scripts/\allowbreak d2\_\allowbreak mass\_\allowbreak concentration\_\allowbreak threshold.\allowbreak py}, \texttt{scripts/\allowbreak \_\allowbreak d2\_\allowbreak trace\_\allowbreak globular.\allowbreak py}.
 
 \section{Does the second-derivative error land where it matters?}\label{app:environment}
 The class-flip rate of Section~\ref{sec:physics} is a bare number until it is weighted by environment.
@@ -1099,10 +1125,11 @@ where galaxies form. We therefore bin the same query nodes by a $k$-NN density p
 $\rho\propto r_k^{-3}$ with the self excluded) and report the flip rate, the share of all flips, the
 eigenvalue-sign mixture and the eigenvalue scale per octile. Real CAMELS snapshot, $N=100{,}000$,
 $Q=4{,}096$, $\theta=0.5$, centre-of-mass criterion, $p{=}0$; artifact
-\texttt{outputs/misclassification\_vs\_environment.json}, script
-\texttt{scripts/eval\_misclassification\_vs\_environment.py}.
+\texttt{outputs/\allowbreak misclassification\_\allowbreak vs\_\allowbreak environment.\allowbreak json}, script
+\texttt{scripts/\allowbreak eval\_\allowbreak misclassification\_\allowbreak vs\_\allowbreak environment.\allowbreak py}.
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
 density octile & median $\rho$ & exact mix (1-pos/2-pos) & flip rate $p{=}0$ & flip rate $p{=}1$ & share of flips \\
@@ -1117,6 +1144,7 @@ density octile & median $\rho$ & exact mix (1-pos/2-pos) & flip rate $p{=}0$ & f
 7 (highest) & 77.3 & $0.79/0.21$ & $0.0508$ & $0.0352$ & $0.095$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent The flip rate spans only $5.1$--$8.8\%$ across a factor $5.5$ in density, with no monotone
@@ -1135,10 +1163,11 @@ $N=20{,}000$ over \emph{all} nodes for the momentum column, $\theta=0.5$, $\text
 post-D8 geometry. The $k$-nn baseline sums the $k$ nearest neighbours of each node directly; $k$ is
 set to the operator's measured terms per query node ($664.6$, i.e.\ $1{,}145{,}335$ far entries plus
 $215{,}667$ near-leaf member particles over $2{,}048$ nodes) so the two cost the same number of
-evaluations. Script \texttt{scripts/eval\_knn\_baseline.py}, artifact
-\texttt{outputs/knn\_baseline\_postd8.json}.
+evaluations. Script \texttt{scripts/\allowbreak eval\_\allowbreak knn\_\allowbreak baseline.\allowbreak py}, artifact
+\texttt{outputs/\allowbreak knn\_\allowbreak baseline\_\allowbreak postd8.\allowbreak json}.
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrrr}
 \toprule
 engine & terms/node & force rel.\ err & tidal rel.\ err & tidal/force & momentum violation \\
@@ -1150,6 +1179,7 @@ $k$-nn cutoff, $k{=}665$ & $665$ & $9.32\times10^{-1}$ & $1.79\times10^{-1}$ & $
 exact sum, for reference & --- & $0$ & $0$ & --- & $3.6\times10^{-8}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent The momentum column is $\|\sum_i m_i a_i\| / \sum_i m_i\|a_i\|$ from a single force
@@ -1157,8 +1187,8 @@ evaluation: the exact sum conserves it to round-off, the tree violates it struct
 omits the reaction), and the cutoff violates it \emph{more} --- $49\times$ more at $p{=}0$ --- because
 truncation is not antisymmetric. See Section~\ref{sec:conservation} for what that violation does over
 an integration. \emph{These numbers, and those of Appendix~\ref{app:critic}, are post-D8; the
-corresponding pre-D8 artifacts are retained as \texttt{knn\_baseline.json} and
-\texttt{lumyn\_critic\_bridge.json} for comparison, and differ by about an order of magnitude ---
+corresponding pre-D8 artifacts are retained as \texttt{knn\_\allowbreak baseline.\allowbreak json} and
+\texttt{lumyn\_\allowbreak critic\_\allowbreak bridge.\allowbreak json} for comparison, and differ by about an order of magnitude ---
 always in the direction of the corrected geometry being better.}
 
 
@@ -1167,11 +1197,11 @@ anyone computes gravity. The standard cheap solver is \emph{particle--mesh} (PM)
 a grid, solve the Poisson equation with FFTs, difference the potential for the force, and interpolate
 back. It is $\mathcal{O}(N + M^3\log M)$ and it is what every production cosmology code uses for its
 long-range force, so the fair question is not whether a cutoff competes but whether a mesh does.
-We implemented one (\texttt{scripts/eval\_pm\_baseline.py}) and validated the solver independently
+We implemented one (\texttt{scripts/\allowbreak eval\_\allowbreak pm\_\allowbreak baseline.\allowbreak py}) and validated the solver independently
 before trusting any comparison: on a smooth analytic density $\rho\propto\cos(kx)$ it reproduces the
 exact force to $2\times10^{-4}$ at $k\,dx=0.10$ and $1.3\times10^{-2}$ at $k\,dx=0.79$, i.e.\ with the
 $(k\,dx)^2$ signature a second-order finite-difference Poisson solver must have
-(\texttt{scripts/\_diag\_pm\_smooth.py}).
+(\texttt{scripts/\allowbreak \_\allowbreak diag\_\allowbreak pm\_\allowbreak smooth.\allowbreak py}).
 
 \textbf{Two conventions had to be reconciled first, and getting this wrong inflates PM's error by
 $80$ percentage points.} A periodic FFT-Poisson solve drops the $k{=}0$ mode, which is the field of
@@ -1181,10 +1211,11 @@ $54.6$ --- so it is $2.3\times$ the \emph{peculiar} part and dominates the total
 PM against an isolated reference therefore reports $98\%$ where the mesh is only responsible for
 $18\%$. We compute the uniform-box field by summation rather than from Gauss's law, because
 $(4\pi G\bar\rho/3)\,r$ is the field inside a uniform \emph{sphere} and this box is a cube, where that
-formula is $8\%$ wrong (\texttt{scripts/\_diag\_pm\_peculiar.py}). The table below puts PM on the
+formula is $8\%$ wrong (\texttt{scripts/\allowbreak \_\allowbreak diag\_\allowbreak pm\_\allowbreak peculiar.\allowbreak py}). The table below puts PM on the
 isolated convention, the same one the operator is measured in.
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrrr}
 \toprule
 engine & part./cell & force rel.\ err & tidal rel.\ err & cost (s) & what the cost buys \\
@@ -1195,11 +1226,12 @@ PM $128^{3}$ & $1.10$ & $1.90\times10^{-1}$ & $9.12\times10^{-1}$ & $8.8$ & the 
 PM $256^{3}$ & $0.14$ & $1.80\times10^{-1}$ & $7.84\times10^{-1}$ & $21.5$ & the whole $2.3$M-node field \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Real CAMELS snapshot, $N=2.3$M, $Q=1{,}024$, $\theta=0.5$, $\texttt{max\_leaf}=8$, per-node
-mean relative error, $\epsilon=10^{-4}$; artifacts \texttt{outputs/pm\_baseline\_n2M3.json} and, at
-$N=10^{5}$, \texttt{outputs/pm\_baseline\_n100k.json}. The tree row costs more than any PM row while
+mean relative error, $\epsilon=10^{-4}$; artifacts \texttt{outputs/\allowbreak pm\_\allowbreak baseline\_\allowbreak n2M3.\allowbreak json} and, at
+$N=10^{5}$, \texttt{outputs/\allowbreak pm\_\allowbreak baseline\_\allowbreak n100k.\allowbreak json}. The tree row costs more than any PM row while
 evaluating $1{,}024$ nodes rather than $2.3$M: \textbf{the mesh is roughly two orders of magnitude
 cheaper, and that is the honest half of this appendix.}
 
@@ -1210,7 +1242,7 @@ mesh represents the \emph{field}; the per-node acceleration in a clustered parti
 dominated by structure \emph{below the cell}, which a deposited density cannot carry and a `cloud'
 assignment cannot read back. Against a reference smoothed at the cell scale PM's error improves but
 never collapses (best $53\%$ over $\epsilon=10^{-4}$ to $1.6$;
-\texttt{scripts/\_diag\_pm\_smoothing.py}), and the residual against an unsmoothed reference is
+\texttt{scripts/\allowbreak \_\allowbreak diag\_\allowbreak pm\_\allowbreak smoothing.\allowbreak py}), and the residual against an unsmoothed reference is
 exactly the sub-cell part that production codes supply with a short-range direct sum. That pairing is
 tree--PM, and its accuracy at small scales is set by the short-range cutoff --- which is the regime the
 $k$-NN baseline above already characterises.
@@ -1243,6 +1275,7 @@ Section~\ref{sec:conservation} (same initial conditions, $150$ steps, $\theta=0.
 $0.05$, $N=2{,}000$) reproduces their finding from the other end:
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
 force used & energy & angular & momentum & centre of mass \\
@@ -1254,6 +1287,7 @@ operator, $p{=}1$ & $5.12\times10^{-4}$ & $3.83\times10^{-4}$ & $1.76\times10^{-
 ratio to exact, $p{=}0$ & $3.6$ & $1.9\times10^{3}$ & $9.8\times10^{3}$ & $7.6\times10^{2}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Swapping the exact force for this operator moves the energy channel by a factor of $3.6$
@@ -1264,15 +1298,16 @@ sensitive of the two} ($12\times$ the momentum drift here, $20\times$ under the 
 the reaction force this operator omits would act on a cell's members at large distance, so the torque
 error carries an extra factor of $r$. Both channels fall by $6$--$11\times$ when the quadrupole is
 retained, consistent with $p{=}1$ reducing the far-field error throughout. Script
-\texttt{scripts/bridge\_lumyn\_critic.py}, artifact
-\texttt{outputs/lumyn\_critic\_bridge\_postd8.json}.
+\texttt{scripts/\allowbreak bridge\_\allowbreak lumyn\_\allowbreak critic.\allowbreak py}, artifact
+\texttt{outputs/\allowbreak lumyn\_\allowbreak critic\_\allowbreak bridge\_\allowbreak postd8.\allowbreak json}.
 
 \noindent\textbf{The solver-side measurement.} The table summarised in
 Section~\ref{sec:conservation} is the over-time counterpart of the critic channels above: $150$
 leapfrog steps at $N=2{,}000$, $\theta=0.5$, softening $0.05$, initial conditions with zero net
-momentum (\texttt{scripts/eval\_conservation\_drift.py}, \texttt{outputs/conservation\_drift.json}).
+momentum (\texttt{scripts/\allowbreak eval\_\allowbreak conservation\_\allowbreak drift.\allowbreak py}, \texttt{outputs/\allowbreak conservation\_\allowbreak drift.\allowbreak json}).
 
 \begin{center}
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{%
 \begin{tabular}{lrrr}
 \toprule
 force used & $\|\sum_i m_i v_i\|$ & energy drift $|\Delta E/E_0|$ & barycentre $\|\bar x\|$ \\
@@ -1282,6 +1317,7 @@ operator, $p{=}0$ & $1.4\times10^{0}$ & $2.3\times10^{-4}$ & $4.6\times10^{-4}$ 
 operator, $p{=}1$ & $1.1\times10^{-1}$ & $1.6\times10^{-4}$ & $6.2\times10^{-5}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{center}
 
 \noindent Momentum is violated by $1.1\times10^{4}\times$ the exact run's, and the two series are
@@ -1292,17 +1328,17 @@ structural defect that more multipole order reduces ($12\times$ at $p{=}1$) but 
 energy drift stays the \emph{same order} as the exact run's ($4.7\times$ at $p{=}0$, $3.3\times$ at
 $p{=}1$), because it is set by the integrator and the approximate force remains close enough to the
 gradient of some potential that no secular energy error appears. Script
-\texttt{scripts/eval\_conservation\_drift.py}, artifact
-\texttt{outputs/conservation\_drift\_postd8.json}; the pre-D8 counterpart
-\texttt{conservation\_drift.json} gave a $p{=}0$ momentum violation of $10.4$, and is retained for
+\texttt{scripts/\allowbreak eval\_\allowbreak conservation\_\allowbreak drift.\allowbreak py}, artifact
+\texttt{outputs/\allowbreak conservation\_\allowbreak drift\_\allowbreak postd8.\allowbreak json}; the pre-D8 counterpart
+\texttt{conservation\_\allowbreak drift.\allowbreak json} gave a $p{=}0$ momentum violation of $10.4$, and is retained for
 comparison.
 
 \section{Reproducibility details}\label{app:repro}
 \noindent\textbf{Data.} CAMELS IllustrisTNG $L25n256$, realisation \texttt{CV\_14},
 \texttt{snapshot\_014} ($z\approx6$, box $25$\,Mpc/$h$, $\Omega_m=0.3$, $h=0.6711$). Download:
-\texttt{scripts/download\_camels.py} (public Flatiron mirror; the CAMELS public data release
+\texttt{scripts/\allowbreak download\_\allowbreak camels.\allowbreak py} (public Flatiron mirror; the CAMELS public data release
 \citep{camels2023} is the durable route if the mirror path changes). Reader/adapter:
-\texttt{src/laniakea\_hmmp/data/camels.py}. $\mathrm{PartType1}$ dark matter, $16.7$M particles
+\texttt{src/\allowbreak laniakea\_\allowbreak hmmp/\allowbreak data/\allowbreak camels.\allowbreak py}. $\mathrm{PartType1}$ dark matter, $16.7$M particles
 subsampled to $2.3$M.
 
 \noindent\textbf{Operator configuration.} Opening angle $\theta=0.5$ and monopole only ($p=0$) unless
@@ -1311,23 +1347,25 @@ a setting is explicitly varied; softening $\epsilon=10^{-4}$; octree \texttt{max
 $[0,25)$\,Mpc/$h$. The octree and interaction list are built once per particle set and cached across
 repeated evaluations, which is the configuration the memory numbers assume.
 
-\noindent\textbf{Script $\rightarrow$ result.} \texttt{scripts/exact\_nbody.py}
-(Table~\ref{tab:exact}); \texttt{scripts/sweep\_multipole\_order.py}
+\begin{sloppypar}
+\noindent\textbf{Script $\rightarrow$ result.} \texttt{scripts/\allowbreak exact\_\allowbreak nbody.\allowbreak py}
+(Table~\ref{tab:exact}); \texttt{scripts/\allowbreak sweep\_\allowbreak multipole\_\allowbreak order.\allowbreak py}
 (Table~\ref{tab:ordersweep} and the $\theta=0.70$ breakdown);
-\texttt{scripts/exact\_nbody\_sampled.py} via \texttt{scripts/rerun\_sampled\_validation.sh}
+\texttt{scripts/\allowbreak exact\_\allowbreak nbody\_\allowbreak sampled.\allowbreak py} via \texttt{scripts/\allowbreak rerun\_\allowbreak sampled\_\allowbreak validation.\allowbreak sh}
 (Table~\ref{tab:sampled}; run with and without \texttt{-{}-quadrupole});
-\texttt{scripts/sweep\_multipole\_order\_tidal.py} (the tidal order shift) and
-\texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.py} (the same on the real snapshot, the two
+\texttt{scripts/\allowbreak sweep\_\allowbreak multipole\_\allowbreak order\_\allowbreak tidal.\allowbreak py} (the tidal order shift) and
+\texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.\allowbreak py} (the same on the real snapshot, the two
 tables of Section~\ref{sec:order}, and Appendix~\ref{app:surface} with
 \texttt{-{}-opening-mode surface});
-\texttt{scripts/eval\_tidal\_eigenmetrics.py} (Section~\ref{sec:physics} and
-Appendix~\ref{app:surface}); \texttt{scripts/diagnose\_aggregate\_vs\_percell.py}
+\texttt{scripts/\allowbreak eval\_\allowbreak tidal\_\allowbreak eigenmetrics.\allowbreak py} (Section~\ref{sec:physics} and
+Appendix~\ref{app:surface}); \texttt{scripts/\allowbreak diagnose\_\allowbreak aggregate\_\allowbreak vs\_\allowbreak percell.\allowbreak py}
 (Appendix~\ref{app:percell});
-\texttt{scripts/scaling.py} (Table~\ref{tab:time} and the opening-angle error curve);
-\texttt{scripts/benchmark\_memory.py} (Tables~\ref{tab:mem} and~\ref{tab:memdeep}).
-The theory note \texttt{docs/DERIVATION.md} records the bound's assumptions and closure, and
-\texttt{docs/PROVENANCE.md} maps every number in this paper to the artifact that produced it,
+\texttt{scripts/\allowbreak scaling.\allowbreak py} (Table~\ref{tab:time} and the opening-angle error curve);
+\texttt{scripts/\allowbreak benchmark\_\allowbreak memory.\allowbreak py} (Tables~\ref{tab:mem} and~\ref{tab:memdeep}).
+The theory note \texttt{docs/\allowbreak DERIVATION.\allowbreak md} records the bound's assumptions and closure, and
+\texttt{docs/\allowbreak PROVENANCE.\allowbreak md} maps every number in this paper to the artifact that produced it,
 including every defect listed above.
+\end{sloppypar}
 
 \noindent\textbf{Numerical reproducibility of the sampled statistics.} The far field is accumulated
 with \texttt{index\_add\_} on the GPU, whose reduction order is not fixed, so repeated identical runs
@@ -1354,6 +1392,6 @@ re-measurement,
 the corrected real-data order-shift numbers and the real-data gradient experiment, and must not be used
 for those.} Dependencies are pinned in \texttt{pyproject.toml}. The CPU
 test suite passes in full ($81$ tests, including the $11$ that pin the second-derivative reference to
-the autograd Jacobian); \texttt{tests/test\_camels\_adapter.py} additionally requires \texttt{h5py}
+the autograd Jacobian); \texttt{tests/\allowbreak test\_\allowbreak camels\_\allowbreak adapter.\allowbreak py} additionally requires \texttt{h5py}
 and is the one module that cannot be collected without it.
 

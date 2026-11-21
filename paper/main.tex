@@ -2,6 +2,10 @@
 \usepackage[letterpaper,margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{url}
+% A robust, break-anywhere file-path macro: safe in captions (moving arguments),
+% and \nolinkurl is patched by xurl to allow breaks at any character, so long
+% src/.../file.py paths stop running past the right margin.
+\DeclareRobustCommand{\filepath}[1]{\nolinkurl{#1}}
 \usepackage{microtype}
 \setlength{\emergencystretch}{3em}
 \usepackage{lmodern}
@@ -10,6 +14,7 @@
 \usepackage{graphicx}
 \usepackage[round,authoryear]{natbib}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\usepackage{xurl}
 \newtheorem{proposition}{Proposition}[section]
 \DeclareRobustCommand{\Propref}{\ref{prop:bound}}
 % Preprint build, DERIVED from paper.tex by scripts/make_preprint_version.py.
@@ -398,7 +403,7 @@ $N=2.3$M, and we do not claim that.
 \begin{table}[h]
 \centering
 \caption{Agreement with a brute-force exact N-body force ($N=2{,}000$, $\theta=0.5$, softening
-$\epsilon=10^{-4}$; \protect\path{scripts/exact_nbody.py}). Measured on synthetic lognormal clouds, the
+$\epsilon=10^{-4}$; \texttt{scripts/\allowbreak exact\_\allowbreak nbody.py}). Measured on synthetic lognormal clouds, the
 same distribution as the order study of Section~\ref{sec:order}. \textbf{Every operator number in
 this paper is post-defect-D8} (Appendix~\ref{app:provenance}). The pre-fix value, and what the correction was worth, are in Appendix~\ref{app:provenance}. The stored
 artifact keys are named \texttt{far\_field\_*}, but the measured quantity is the \emph{complete}
@@ -439,8 +444,11 @@ $Q$ makes the reference cost $O(QN)$ instead of $O(N^{2})$, which is affordable 
 report two quantities at those nodes, both against their own brute-force sum: the acceleration, and
 the \emph{tidal tensor}
 \begin{equation}
+\begin{aligned}
 T_{ij}=\frac{\partial a_i}{\partial x_j}=-\frac{\partial^{2}\phi}{\partial x_i\partial x_j}
-=\sum_j m_j\Big[\frac{3d_id_j}{r^{5}}-\frac{\delta_{ij}}{r^{3}}\Big],\qquad d=x_j-x_i ,
+&=\sum_j m_j\Big[\frac{3d_id_j}{r^{5}}-\frac{\delta_{ij}}{r^{3}}\Big],\\
+d&=x_j-x_i ,
+\end{aligned}
 \label{eq:tidaldef}
 \end{equation}
 with the sign fixed by $a=-\nabla\phi$: \textbf{the tidal tensor is minus the Hessian of the
@@ -452,7 +460,7 @@ far-field truncation remainder.
 
 The bound of Appendix~\ref{app:secondorder} is verified on the same configuration. At $\theta=0.5$
 with $2{,}048$ query nodes the tree admits \textbf{$1{,}643{,}251$} far interactions and the bound
-holds on every sampled node there (\protect\path{bound_f64_com_2M3.json}), at a \textbf{median looseness
+holds on every sampled node there (\texttt{bound\_\allowbreak f64\_\allowbreak com\_\allowbreak 2M3.json}), at a \textbf{median looseness
 of $426\times$} (tightest $30\times$, worst $2534\times$). The same test run on the \emph{whole}
 $16.7$M snapshot --- deliberately the same $N$ as the operator table below, so that bound and operator
 are verified at one scale rather than two --- admits $1{,}060{,}190$ far interactions over
@@ -468,7 +476,7 @@ round-off artefact is indistinguishable from a violation unless the precision is
 stated here rather than only in the appendix.
 
 The tidal reference is an independent implementation that is pinned to \texttt{torch.autograd}'s
-Jacobian of the exact force to $10^{-10}$ in double precision (\protect\path{tests/test_tidal_tensor.py});
+Jacobian of the exact force to $10^{-10}$ in double precision (\texttt{tests/\allowbreak test\_\allowbreak tidal\_\allowbreak tensor.py});
 this matters, because an earlier version of this paper used a second-derivative expression that was
 \emph{not} the Jacobian and understated the tidal error by a factor of $\approx2.7$. That defect is
 disclosed as (D6) in Appendix~\ref{app:provenance} and every number in Table~\ref{tab:sampled} is
@@ -478,7 +486,7 @@ from after the fix.
 \centering
 \includegraphics[width=\columnwidth]{figures/fig_error_vs_N.pdf}
 \caption{Per-node mean relative error against particle count, both multipole orders, force and tidal,
-for the published rows of Table~\ref{tab:sampled} (\protect\path{scripts/make_paper_figures.py}). The force
+for the published rows of Table~\ref{tab:sampled} (\texttt{scripts/\allowbreak make\_\allowbreak paper\_\allowbreak figures.py}). The force
 error is almost flat across a $1678\times$ range in $N$: a factor $1.7$ with the monopole and $2.0$
 with the quadrupole. \textbf{The tidal error is not flat at the top of the range} --- $2.4\times$ and
 $4.0\times$ over the full span, against $1.3\times$ over the first $230\times$ --- because the admitted
@@ -653,8 +661,8 @@ Appendix~\ref{app:diff}, and it is the property a field-level inference actually
 synthetic, so we repeated the measurement on the CAMELS \texttt{L25n256} snapshot --- the same data
 the operator validation uses --- over $N\in\{2\times10^{4},10^{5}\}$, $\theta\in\{0.50,0.70\}$, both
 acceptance criteria, both multipole orders and three seeds per cell, giving $48$ density-weighted
-configurations (\protect\path{scripts/eval_vjp_error.py},
-\protect\path{outputs/vjp_camels_real_data.json}). \textbf{The amplification is below one in all $48$},
+configurations (\texttt{scripts/\allowbreak eval\_\allowbreak vjp\_\allowbreak error.py},
+\texttt{outputs/\allowbreak vjp\_\allowbreak camels\_\allowbreak real\_\allowbreak data.json}). \textbf{The amplification is below one in all $48$},
 from $0.226$ to $0.766$ with a median of $0.510$; the gradient's relative error stays at or below
 $1.7\times10^{-4}$ and its direction cosine at or above $0.99999982$. The contraction is therefore not
 an artefact of controlled clouds: on real clustering, with its heavy tails, the gradient a
@@ -744,7 +752,7 @@ $\theta$ & $N=2{,}000$ & $N=8{,}000$ & $N=32{,}000$ \\
 \end{table}
 
 \noindent At the operating point $\theta=0.5$ the quadrupole cuts the relative force error
-from $0.038582$/$0.040265$/$0.041258$ to $0.016101$/$0.016555$/$0.018094$ for
+from $0.038582$/\allowbreak$0.040265$/\allowbreak$0.041258$ to $0.016101$/\allowbreak$0.016555$/\allowbreak$0.018094$ for
 $N=32{,}000$/$8{,}000$/$2{,}000$ --- a factor of $2.28$--$2.43$ --- and raises the direction
 cosine from $\approx0.99927$ to $\approx0.99984$. That is the payoff of the order dependence the
 bound predicts, and it is cheap but \emph{not} free: measured on the complete operator at $2.3$M
@@ -841,7 +849,7 @@ the averages, so we report it explicitly rather than leaving it implicit in a ta
 \centering
 \includegraphics[width=\columnwidth]{figures/fig_mean_vs_worst.pdf}
 \caption{The measurement behind Section~\ref{sec:meanisnotbound}, drawn
-(\protect\path{scripts/make_paper_figures.py}). \emph{Left:} the per-node second-derivative error, mean
+(\texttt{scripts/\allowbreak make\_\allowbreak paper\_\allowbreak figures.py}). \emph{Left:} the per-node second-derivative error, mean
 against the worst node, at each opening angle; the ratio is $10.3$--$35.1\times$ and is largest at the
 tightest opening, so it is not a large-$\theta$ artefact a conservative user would avoid.
 \emph{Right:} the principal-axis direction cosine, which at $\theta=0.90$ is $0.99668$ on average ---
@@ -1003,7 +1011,7 @@ family & \multicolumn{2}{c}{per-node $|\text{err}|/|\mathcal S|$} & per-node $-\
 
 \noindent That row is a \emph{sweep}, not a single tree: four sizes ($N=2\times10^{3}$ to $10^{5}$) and
 $30$ seed-runs, $7{,}680$ sampled nodes, all committed
-(\protect\path{outputs/selfcertify_order_across_N.json}). Three things it settles, one of which corrects
+(\texttt{outputs/\allowbreak selfcertify\_\allowbreak order\_\allowbreak across\_\allowbreak N.json}). Three things it settles, one of which corrects
 what a single draw suggests. \textbf{The failure is a property of the method, not of one tree}: it
 reproduces at every size and in all $30$ runs. \textbf{But the bar is roughly honest at the
 \emph{median}} --- the median-of-medians calibration is $0.59$, i.e. conservative by about
@@ -1024,9 +1032,9 @@ certifies the thing it should have caught. This is
 fact that the obvious fix fails is the reason Appendix~\ref{app:secondorder} has to be a proof rather
 than an estimator. The deliverable of this paper is the provable per-interaction bound plus the
 external $O(QN)$ reference at $2.3$M, not a self-reported bar; the iterator and both failures are
-kept in the repository (\protect\path{src/laniakea_hmmp/models/selfcertify.py},
-\protect\path{scripts/selfcertify_surplus.py}, \protect\path{scripts/selfcertify_operator.py},
-\protect\path{scripts/selfcertify_order_operator.py}) so that the negative result is reproducible rather
+kept in the repository (\texttt{src/\allowbreak laniakea\_\allowbreak hmmp/\allowbreak models/\allowbreak selfcertify.py},
+\texttt{scripts/\allowbreak selfcertify\_\allowbreak surplus.py}, \texttt{scripts/\allowbreak selfcertify\_\allowbreak operator.py},
+\texttt{scripts/\allowbreak selfcertify\_\allowbreak order\_\allowbreak operator.py}) so that the negative result is reproducible rather
 than asserted.
 
 \subsection{Beyond accuracy: a neighbour cutoff, and the conservation laws}\label{sec:conservation}
@@ -1072,7 +1080,7 @@ is what a small-$N$ end dominated by fixed overhead produces. The \emph{determin
 the curve is the admitted far-field interaction count: $98{,}272$ at $N=10^{3}$ to $6{,}978{,}919$ at
 $N=2\times10^{4}$, i.e.\ $71.0\times$ over a $20\times$ range in $N$, and therefore \emph{faster} than
 the $O(N\log N)$ reference ($28.67\times$) the same comparison prints beside it
-(\protect\path{scripts/compare_d8_cost_ab.py}). \textbf{That family is not self-similar --- fixed box,
+(\texttt{scripts/\allowbreak compare\_\allowbreak d8\_\allowbreak cost\_\allowbreak ab.py}). \textbf{That family is not self-similar --- fixed box,
 density rising with $N$ --- so we re-ran the curve on a family that is.} Scaling linear size, grid and
 $N$ together ($L=1,2,4,8$, i.e.\ $N=10^{3}\to512\times10^{3}$, box $100\to800$, grid $32\to256$,
 density held fixed) gives a forward-pass time growing $1000.85\times$ over a $512\times$ range in $N$,
@@ -1083,14 +1091,14 @@ The smallest rung is overhead-dominated ($15.9$\,ms, so the overall ratio is if 
 \emph{inflated}: the largest rung alone grows $7.35\times$ for $8\times$ in $N$, \emph{below} the
 $8.89\times$ reference), and the interaction list per query node grows $3.88\times$ across the ladder
 rather than the $1.68\times$ a pure $\log N$ would give
-(\protect\path{scripts/scaling_fixed_density.py},
-\protect\path{outputs/scaling_fixed_density_postd8.json}).
+(\texttt{scripts/\allowbreak scaling\_\allowbreak fixed\_\allowbreak density.py},
+\texttt{outputs/\allowbreak scaling\_\allowbreak fixed\_\allowbreak density\_\allowbreak postd8.json}).
 
 \emph{Where the tree overtakes the direct sum.} The crossover is measurable: the brute-force sum only needs chunking over source rows to run past $N=3{,}000$
 without the $O(N^2)$ transient, so we extended the comparison to $N=16{,}000$ with three series on one
 control --- the full-field operator, the full-field brute-force sum, and the brute-force sum restricted
 to $Q=2{,}048$ query nodes, which is the sampled reference this paper uses at scale
-(\protect\path{scripts/measure_crossover.py}, \protect\path{outputs/crossover_cpu.json}). Two independent runs
+(\texttt{scripts/\allowbreak measure\_\allowbreak crossover.py}, \texttt{outputs/\allowbreak crossover\_\allowbreak cpu.json}). Two independent runs
 agree on both brackets. \textbf{On one CPU, the operator becomes the cheaper full-field method at
 $N\approx6{,}000$--$8{,}000$} (interpolating the crossover in $\log N$ gives $7{,}200$): below that the
 exact sum wins on wall clock even though it is the $O(N^2)$ method, and by $N=16{,}000$ the ratio has
@@ -1196,7 +1204,7 @@ keeps its particles in one leaf, a shallow tree admits few far cells, and the mo
 reads particle membership rather than cell geometry, so nothing ever compared a cell centre against
 its contents. The invariant that catches it --- every cell's particles must lie inside
 $[\text{centre}\pm\text{size}/2]$, which is independent of any multipole approximation --- is now
-asserted in \protect\path{tests/test_cell_geometry.py}. The failure mode is characteristic of the
+asserted in \texttt{tests/\allowbreak test\_\allowbreak cell\_\allowbreak geometry.py}. The failure mode is characteristic of the
 operator class rather than of our code: a near/far decomposition can lose or corrupt interactions
 silently, and standard smoke tests are structurally blind to it.
 
@@ -1312,7 +1320,7 @@ Appendix~\ref{app:provenance} records the defects we found while assembling it. 
 \section*{Data Availability}
 The reference implementation and every script named in this paper are available from the authors on
 request, and will be released publicly with the journal version. The project repository's
-\protect\path{docs/PROVENANCE.md} maps every number in this paper to the script and the output file that
+\texttt{docs/\allowbreak PROVENANCE.md} maps every number in this paper to the script and the output file that
 produced it, including the pre-correction values kept beside the current ones.
 
 \section*{Statement on Novelty and Failure Reporting}
