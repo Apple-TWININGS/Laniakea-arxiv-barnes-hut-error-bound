@@ -1,0 +1,1359 @@
+% Shared appendix block for both venue versions of this paper.
+%
+% This file is the single source of truth for every derivation, appendix table and disclosed
+% defect. `paper.tex` (AAS Journals) and `paper_icml.tex` (ICML format) both \input it, so the
+% two versions cannot drift apart on anything below. Edit it here, not in either paper.
+% It is included after the bibliography in both, so appendix cross-references resolve either way.
+
+\appendix
+\section{Differentiability of HMMP}\label{app:diff}
+\subsection{Gradient flow through the discrete traversal}
+The octree traversal involves discrete decisions (distance-threshold comparisons) that are
+not differentiable. We decouple the geometry-only octree construction (a fixed computational
+graph) from the learned message passing: the tree and interaction list are computed once
+from the input positions and treated as constants during training, so gradients flow only
+through the continuous message functions (the near-field $k$-NN aggregation and the
+multipole $\mathrm{UPDATE}$). This is a straight-through-estimator stand-in for the discrete
+open/close choices; they receive no gradient, as they are determined by geometry. We do not
+claim differentiability w.r.t.\ the tree structure itself; the error introduced by the
+hierarchical approximation, rather than by differentiability, is what Proposition~\ref{prop:bound} bounds.
+
+\subsection{Framework independence}
+The Barnes--Hut octree and multipole expansion are a geometry-only preprocessing module
+independent of the GNN framework: it emits (i) near-field neighbour pairs and (ii) far-field
+cell-to-node pairs, which are converted into standard \texttt{edge\_index} tensors usable by
+PyG/DGL-style scatter-add message passing. Our experiments use the PyTorch implementation;
+the octree core is framework-agnostic.
+
+\subsection{Measured gradient error through the operator}
+The two subsections above are arguments, not measurements. Section~\ref{sec:vjp} supplies the
+measurement: it differentiates a density-weighted tidal energy through the exact field and through
+the operator, and compares the two vector--Jacobian products. Differentiability and the
+\emph{accuracy} of the gradient delivered are separate questions, and only the second is what a
+reconstruction depends on. The adjoint sum \emph{contracts} the per-node tidal errors: the
+amplification factor is below one in every $p{=}0$ configuration measured, with a maximum of $0.76$ at
+$\theta\le0.70$, so the differentiability argued for here is delivered at an error no worse than the
+tensor's, and the gradient a reconstruction descends on is \emph{more} accurate than the tensor it
+came from. Because the tree is fixed and carries no gradient (above), this also bounds where the
+error can originate: it is the far field's \emph{value} that is wrong, not the path the gradient
+takes through the traversal.
+
+\noindent\textbf{What an earlier version of this appendix reported, and why it changed.} It reported a
+catastrophic failure at $\theta=0.70$: gradient error reaching $\infty$ and a direction cosine of
+$0.000000$ on a third of the seeds, with the centre-of-mass acceptance test implicated.
+\textbf{That result is withdrawn} --- it was defect D8 (Appendix~\ref{app:provenance}), not a property
+of the approximation. With the geometry fixed the same
+code path gives $0$ failures in $15$ seeds at $\theta=0.70$, an amplification of at most $0.76$ and
+$\cos\ge0.99999$ --- which is why Table~\ref{tab:vjp} carries a $\theta=0.70$ row at all. The
+diagnostic worth keeping is that the measurement which exposed it varied a parameter the theory says
+should barely matter.
+
+\noindent\textbf{Scope, and a defect found on first execution.} Every E3 number is on synthetic
+lognormal clouds, not the CAMELS snapshot. The cloud is clustered with density-proportional masses
+($\mathrm{std}=0.657$), whereas the real subsample is equal-mass. The script had never been executed
+before that measurement, and its first run revealed that the per-node denominator was computed once
+at $p{=}0$ \emph{outside} the multipole-order loop and reused for $p{=}1$, so the $p{=}1$
+amplification divided a $p{=}1$ gradient error by a $p{=}0$ tensor error; at $n=10^{5}$,
+$\theta=0.5$ this read $0.389$ where the order-matched ratio is $0.651$. The defect understated the
+amplification and is fixed; the before-state artifact is kept. The measurement also required adding
+\texttt{-{}-opening-mode} to the script.
+
+\section{Proof of Proposition~\Propref}
+\label{app:proof}
+
+\subsection{Setup and notation}
+Fix a graph $G$ with node features $\{h_i\}$. For each node $i$, the interaction list is
+partitioned into a near set $\mathcal{N}(i)$ (exact leaf sums and $k$-NN edges) and a far set
+$\mathcal{C}_i$ of cells. A cell $c$ with size $R_c$ at distance $r_{ic}$ is placed in
+$\mathcal{C}_i$ iff $R_c/r_{ic}<\theta$ (the opening criterion); otherwise it is opened and
+its children are considered. The physical operator evaluated by HMMP is
+\begin{equation}
+a_i^{\mathrm{phys}}
+= \underbrace{\sum_{j \in \mathcal{N}(i)} m_{j \to i}}_{\text{exact near field}}
++ \underbrace{\sum_{c \in \mathcal{C}_i} \hat{a}_{c \to i}^{(p)}}_{\text{truncated far field}},
+\end{equation}
+where $\hat{a}_{c \to i}^{(p)}$ is the order-$p$ multipole approximation to the cell's
+contribution and $m_{j \to i} = m_j (x_j - x_i)/\|x_j - x_i\|^3$. The exact operator replaces
+$\hat{a}_{c \to i}^{(p)}$ by the exact sum over all particles in cell $c$.
+
+\paragraph{Assumption A1 (Lipschitz update).}
+The per-layer update $\phi$ is $\ell$-Lipschitz in its input: for any $u,v$,
+$\|\phi(u)-\phi(v)\|\le\ell\|u-v\|$.
+
+\paragraph{Assumption A2 (contractive aggregation).}
+The aggregation operator $\mathrm{AGG}$ is $\alpha$-contractive: for any two feature sets
+$\{h_j\},\{h_j'\}$,
+$\|\mathrm{AGG}(\{h_j\})-\mathrm{AGG}(\{h_j'\})\|\le\alpha\max_j\|h_j-h_j'\|$.
+We additionally require the \emph{effective} per-layer contraction to satisfy
+$\beta:=\ell\alpha<1$; this is the condition under which the geometric series below
+converges.
+
+\paragraph{Assumption A3 (multipole remainder).}
+For a cell $c$ of size $R_c$ at distance $r_{ic}>R_c/\theta$, the order-$p$ multipole
+approximation satisfies
+\begin{equation}
+\big\|\hat{a}_{c\to i}^{(p)}-a_{c\to i}^{\mathrm{exact}}\big\|
+\le C_p\,M_c\,\frac{R_c^{\,p+2}}{r_{ic}^{\,p+4}}.
+\end{equation}
+For the monopole ($p=0$) this is the familiar $C_0 M_c R_c^{2}/r_{ic}^{4}$: relative to the
+monopole force $M_c/r_{ic}^{2}$ it is exactly of order $(R_c/r_{ic})^{2}$. This is the
+standard remainder of a multipole expansion about the centre of mass
+\citep{greengard1987}, and it is \emph{derived} below (``Derivation of A3'') rather than
+asserted; that derivation also yields the explicit factor
+$C_p\lesssim(2p+5)/(1-\theta)$. Note that the
+expansion is taken about the cell centre of mass, so the \emph{dipole} moment vanishes
+identically and the first non-vanishing omitted term is the quadrupole; this is why the
+monopole's leading remainder carries $R^2$ and not $R$.
+
+\subsection{Step 1: far-field truncation error at a single node}
+Summing A3 over the far set $\mathcal{C}_i$ and factoring out the opening ratio,
+\begin{align}
+\big\|a_i^{\mathrm{far}}-a_i^{\mathrm{far,exact}}\big\|
+&\le\sum_{c\in\mathcal{C}_i}C_p M_c\frac{R_c^{\,p+2}}{r_{ic}^{\,p+4}}\nonumber\\
+&=C_p\sum_{c\in\mathcal{C}_i}\frac{M_c}{r_{ic}^{2}}\Big(\frac{R_c}{r_{ic}}\Big)^{p+2}\nonumber\\
+&\le C_p\,\theta^{\,p+2}\sum_{c\in\mathcal{C}_i}\frac{M_c}{r_{ic}^{2}},
+\label{eq:step1}
+\end{align}
+where the last inequality uses the opening criterion $R_c/r_{ic}<\theta$. The near field is
+exact by construction, so the total single-node operator error is bounded by the far-field
+term:
+\begin{equation}
+\|a_i^{\mathrm{phys}}-a_i^{\mathrm{exact}}\|
+\le C_p\,\theta^{\,p+2}\sum_{c\in\mathcal{C}_i}\frac{M_c}{r_{ic}^{2}}.
+\label{eq:step1b}
+\end{equation}
+
+\subsection{Step 2: from opening angle to $R/r$}
+Two lengths appear from here on and they are \emph{not} the same symbol, so we fix them. Write
+$r_{ic}$ for the distance from node $i$ to a particular far cell $c$, and let
+$r:=\min_{c\in\mathcal C_i} r_{ic}$ be the \emph{closest} such distance. Every far cell
+satisfies $R_c/r_{ic}<\theta$, and writing $R$ for a common upper bound on the cell size, the
+remaining sum obeys $\sum_{c\in\mathcal{C}_i}M_c/r_{ic}^{2}\le M_{\rm tot}/r^{2}$
+\emph{with $r$ the closest distance} --- it would not hold for an average $r_{ic}$. We flag that
+this step is deliberately loose: whenever the far cells span a wide range of distances it
+replaces the true (smaller) sum by its worst case, which is one reason $C_p$ stays symbolic
+rather than tight. Here $M_{\rm tot}$ is the total mass in the far set, and we obtain
+\begin{equation}
+\|a_i^{\mathrm{phys}}-a_i^{\mathrm{exact}}\|
+\le C_p\,\frac{M_{\rm tot}}{r^{2}}\Big(\frac{R}{r}\Big)^{p+2}.
+\label{eq:step2}
+\end{equation}
+Relative to the monopole force scale $M_{\rm tot}/r^{2}$ this is exactly the factor
+$(R/r)^{p+2}$, which is the form quoted in Proposition~\ref{prop:bound}. The prefactor $M_{\rm tot}/r^{2}$ is
+problem-dependent but independent of the network, so we absorb it into $C_p$ and write
+\begin{equation}
+\|a_i^{\mathrm{phys}}-a_i^{\mathrm{exact}}\|\le C_p\Big(\frac{R}{r}\Big)^{p+2}\|h\|,
+\label{eq:step2b}
+\end{equation}
+where the feature-scale factor $\|h\|$ is carried along for dimensional consistency with the
+layer-wise propagation below.
+
+\subsection{Step 3: propagation through $K$ layers}
+Let $e_i^k=h_i^k-h_i^{k,\mathrm{exact}}$ denote the feature error at layer $k$. Each layer
+applies
+\begin{equation}
+h_i^{k+1}=\phi\big(h_i^k,\;\mathrm{AGG}(\{h_j^k\}_{j\in\mathcal{N}(i)}),\;a_i^{\mathrm{phys}}\big).
+\end{equation}
+Applying A1 and A2 and isolating the operator error
+$\epsilon_i:=\|a_i^{\mathrm{phys}}-a_i^{\mathrm{exact}}\|$,
+\begin{equation}
+\|e_i^{k+1}\|\le\ell\big(\alpha\max_j\|e_j^k\|+\epsilon_i\big).
+\label{eq:step3a}
+\end{equation}
+Taking the max over nodes, $\|e^{k+1}\|\le\beta\|e^k\|+\ell\epsilon$ with $\beta:=\ell\alpha$
+and $\epsilon:=\max_i\epsilon_i$. Unrolling from $k=0$ (where $e^0=0$, since inputs are
+identical),
+\begin{equation}
+\|e^K\|\le\ell\epsilon\sum_{k=0}^{K-1}\beta^k
+=\ell\epsilon\,\frac{1-\beta^K}{1-\beta},
+\label{eq:step3b}
+\end{equation}
+which converges under A2's effective-contraction condition $\beta=\ell\alpha<1$.
+
+\subsection{Step 4: combining Steps 2 and 3}
+Substituting \eqref{eq:step2b} into \eqref{eq:step3b} and absorbing the Lipschitz factor
+$\ell$ into the normaliser $\gamma$,
+\begin{equation}
+\big\|\mathrm{HMMP}(G)-\mathrm{Exact}(G)\big\|
+\le\gamma\,C_p\Big(\frac{R}{r}\Big)^{p+2}\|h\|\,\frac{1-\beta^K}{1-\beta}.
+\label{eq:theorem}
+\end{equation}
+This is the statement of Proposition~\ref{prop:bound}. $\square$
+
+\subsection{Derivation of A3 (the multipole remainder)}
+\label{app:a3}
+A3 is the standard remainder of a multipole expansion taken about the centre of mass. We
+derive it explicitly because the index shift is easy to get wrong, and because an earlier
+draft simply asserted it.
+
+\emph{Step A (which potential term is omitted).} Shift the origin to the cell's centre of mass,
+so $\sum_a m_a y_a=0$ and $|y_a|\le R_c$. For $r=|x|>R_c$ the standard expansion gives
+\begin{equation}
+\begin{aligned}
+\sum_a \frac{m_a}{|x-y_a|}&=\sum_{n\ge 0}\frac{Q_n(\hat x)}{r^{n+1}},\\
+Q_n(\hat x)&:=\sum_a m_a\,|y_a|^n P_n(\cos\gamma_a),
+\end{aligned}
+\end{equation}
+with $\gamma_a$ the angle between $x$ and $y_a$. Then $Q_0=M_c$ and
+$Q_1=\hat x\cdot\sum_a m_a y_a=0$ \emph{identically}. Truncating at order $p$ therefore retains
+$n\le p+1$ (the $n=1$ term contributes nothing), so the first \emph{omitted} term is $n=p+2$
+and the potential remainder is
+\begin{equation}
+\begin{aligned}
+\mathcal R_p(x)&=\sum_{n\ge p+2}\frac{Q_n(\hat x)}{r^{n+1}},\\
+|Q_n(\hat x)|&\le\sum_a m_a|y_a|^n\le M_c R_c^{\,n},
+\end{aligned}
+\end{equation}
+using $|P_n|\le1$. This is the index shift: because the dipole vanishes, ``order $p$'' first
+omits $R^{p+2}$, not $R^{p+1}$ --- which is why the monopole's leading remainder carries $R^2$.
+
+\emph{Step B (from potential to force).} The acceleration is $a=-\nabla\Phi$ and the potential
+error is $\Phi_{\mathrm{err}}=-G\,\mathcal R_p$, so the force error is $G\,\nabla\mathcal R_p$.
+Differentiating one term $h_n(x)=Q_n(\hat x)/r^{n+1}$,
+\begin{equation}
+\begin{aligned}
+\partial_k h_n&=\frac{\partial_k Q_n(\hat x)}{r^{n+1}}
+  -(n+1)\frac{Q_n(\hat x)\,\hat x_k}{r^{n+2}},\\
+\big|\partial_k Q_n(\hat x)\big|&\lesssim \frac{n\,M_c R_c^{\,n}}{r},
+\end{aligned}
+\end{equation}
+where the second estimate uses that $Q_n$ is a spherical harmonic of degree $n$ in $\hat x$, so
+its angular gradient scales as $n$. Hence
+$|\partial_k h_n|\lesssim (2n+1)M_c R_c^{\,n}/r^{n+2}$. Summing over $n\ge p+2$ with
+$t:=R_c/r<\theta$ gives a geometric series whose \emph{coefficients also grow}, so it may
+\emph{not} be bounded by its first term times $1/(1-t)$: with $N:=p+2$,
+\begin{equation}
+\sum_{n\ge N}(2n+1)t^{\,n}
+=\frac{t^{\,N}}{1-t}\Big[(2N+1)+\frac{2t}{1-t}\Big],
+\end{equation}
+so dropping the second bracket term would understate the bound. Hence
+\begin{equation}
+\big\|\nabla\mathcal R_p\big\|\;\le\;
+\underbrace{C_p}_{\textstyle \lesssim\,\frac{2p+5}{1-\theta}+\frac{2\theta}{(1-\theta)^2}}\;
+M_c\,\frac{R_c^{\,p+2}}{r^{\,p+4}},
+\end{equation}
+which is A3, with an explicit dependence on both $p$ and $\theta$. The pole is second order,
+not first, and at $\theta=0.5$, $p=0$ the bracket raises the constant from $10$ to $14$.
+
+\emph{The constant is sharp, and it is not $(2p+5)$.} The per-order factor can be improved from
+$2n+1$ to $n+1$ by bounding the angular and radial parts of $\nabla h_n$ jointly instead of
+separately: with $S_n(z)=|y|^n r^{-(n+1)}P_n(\hat z\cdot\hat y)$ one has the exact identity
+$(\hat y\cdot\nabla)S_n=-(n+1)|y|^n r^{-(n+2)}P_{n+1}$, so $|\nabla S_n|\le(n+1)|y|^n r^{-(n+2)}$,
+attained at $\hat y=\pm\hat z$. Applying the same argument one order up and reducing the resulting
+tensor with the Legendre equation gives the second-derivative constant exactly:
+$|\nabla^2S_n|_F\le\sqrt{3/2}\,(n+1)(n+2)\,|y|^n r^{-(n+3)}$, also sharp, the $\sqrt{3/2}$
+being an exact eigenvalue ratio and not a fit (Appendix~\ref{app:secondorder}). Both constants are checked numerically against finite differences for $l\le12$ (\texttt{scripts/\_hessian\_constant.py}, agreement to $2.8\times10^{-7}$), and the bound built on them is tested where a too-small constant would fail loudly: \textbf{zero violations over $13{,}312$ sampled nodes} --- six float64 runs at $2.3$M and one at $16.7$M, under all three acceptance criteria (Appendix~\ref{app:secondorder}). \emph{An earlier revision stated a symbolic verification to $n=40$ by a script that is not in the repository; we do not assert it.}
+
+\emph{What remains assumed.} The factor $(2p+5)/(1-\theta)$ is explicit, but the $\lesssim$
+hides (i)~the angular-gradient constant and (ii)~the moment bound
+$\sum_a m_a|y_a|^{p+2}\le M_cR_c^{p+2}$, which is loose for a cell whose mass concentrates near
+its centre. We therefore keep $C_p$ symbolic throughout and test only the \emph{scaling} in
+$\theta$ and in $p$ --- which is exactly what Section~\ref{sec:order} measures.
+
+\subsection{Remarks}
+
+\paragraph{Remark B.1 (monopole case, and what is measured).}
+With $p=0$, $(R/r)^{p+2}=(R/r)^2$, recovering the form quoted in the main text. Retaining
+the quadrupole ($p=1$) gives $(R/r)^3$, i.e.\ a faster decay. \textbf{This order dependence
+is measured directly} in Section~\ref{sec:order}: the complete operator's error ratio between $p{=}0$ and
+$p{=}1$ is proportional to $1/\theta$ with a constant stable to $4.93\%$ over $21$
+$(N,\theta)$ settings on controlled synthetic clouds, which is the $(R/r)$ factor that distinguishes
+the two orders. On the real snapshot that constant is not stable --- it varies by $1.6$--$1.9\times$
+over the same range of $\theta$, and its tidal counterpart is not resolvable at $2.3$M
+(Table~\ref{tab:camelsorder}) --- so what is established on clouds is the scaling, and what transfers
+to real data is the sign of the shift. What is \emph{not} measured is the layer-count factor or the
+absolute constant $C_p$.
+
+\paragraph{Remark B.2 (scope).}
+The bound covers the far-field multipole truncation only. The near-leaf sums and the $k$-NN
+edge sums are computed exactly and contribute no truncation error. The bound therefore
+controls the physical operator $a^{\mathrm{phys}}$, \emph{not} the downstream
+density-regression MSE; the latter also depends on the learned message function and the
+update MLP.
+
+\paragraph{Remark B.3 (constants are not fitted).}
+The constants $\ell,\alpha,C_p,\gamma$ enter as upper-bound factors. We do not fit them to
+the measured errors. What the experiments actually test is the bound's functional form: its
+dependence on the \emph{opening angle} ($R^2/r^2$ behaviour in $\theta$) and on the
+\emph{multipole order} (the $1/\theta$ ratio between $p{=}0$ and $p{=}1$, Section~\ref{sec:order}). The
+layer-count factor $(1-\beta^K)/(1-\beta)$ is not isolated by any experiment, and a fully
+quantitative bound-versus-measurement ratio is therefore not reported.
+
+\paragraph{Remark B.4 (what $C_p$ now contains).}
+In \eqref{eq:step2} the single-node error carries the explicit prefactor
+$M_{\rm tot}/r^{2}$, i.e. the monopole force scale. Absorbing it into $C_p$ does not affect
+the bound's dependence on $p$, $\theta$, or $K$ --- the whole point of the derivation is
+that those enter only through $(R/r)^{p+2}$ and the geometric factor. \textbf{The consequence
+for $C_p$:} it now silently contains a mass-distribution- and geometry-dependent factor that
+we make no attempt to bound tightly, so $C_p$ is a symbol for "some constant of the mass
+distribution and the tree", not a computable number. This is precisely why the experiments
+verify the \emph{scaling} (the dependence on $\theta$ and on the order $p$) and not the
+\emph{constant}: an absolute bound-versus-measurement comparison would require bounding
+$M_{\rm tot}/r^2$ and the cell moments, which we have not done.
+
+\paragraph{Remark B.5 (what is a sketch).}
+Steps 1--4 use the multipole remainder bound A3, which \textbf{is derived} above
+(Appendix~B, ``Derivation of A3'') rather than asserted; what that derivation leaves loose is
+the moment bound $\sum_a m_a|y_a|^{p+2}\le M_cR_c^{p+2}$ and the angular-gradient constant,
+which is why $C_p$ stays symbolic. We also do not prove that the \emph{trained} network
+satisfies the effective-contractivity hypothesis $\beta<1$; it is a sufficient condition we
+support empirically, not a certified property of the learned weights. So the accurate
+description of the result is: a bound whose \emph{form} is proved under A1--A3 and whose
+scaling in $\theta$ and $p$ is verified, but whose constants are not evaluated.
+
+\section{The second-derivative error law}\label{app:secondorder}
+A3 bounds the \emph{force} remainder. The quantity a tidal-field or adjoint application consumes is
+the second derivative, and the same expansion can be bounded one order up. This appendix states the
+law, gives the exact per-order constants, and reports the measured looseness of the resulting bound
+on controlled single cells. Everything here is per \emph{interaction}; Section~\ref{sec:order} is the
+aggregate measurement, and the two must not be read as the same object.
+
+\noindent\textbf{How this differs from the classical potential remainder, term by term.} The classical
+FMM error analysis~\citep{cheng1999fast} states four remainders, all for the \emph{potential} $\Phi$:
+Theorem~2.1, eq.~(7),
+$|\Phi-\sum_{n\le p}\cdots|\le\bigl(\sum_i|q_i|/(r-a)\bigr)(a/r)^{p+1}$, for sources inside a sphere
+of radius $a$ about the expansion centre; Theorem~2.4, eq.~(18),
+$\le\bigl(\sum_i|q_i|/(ca-a)\bigr)(1/c)^{p+1}$ for the multipole-to-local conversion; Theorem~2.2,
+eq.~(10) for the local expansion; and Observation~3.4, eq.~(41), $|\Phi-\Phi_\varepsilon|<A\varepsilon$
+for the exponential (plane-wave) representation. Theorem~2.3, eq.~(15) supplies the multipole
+translation. \textbf{No force remainder and no derivative remainder appears in that paper} ---
+``derivative'', ``gradient'' and ``Hessian'' do not occur in its 31 pages
+(Appendix~\ref{app:provenance}, D7).
+
+Three consequences, each of which matters for how the claim is read.
+
+\emph{(i) The missing object is the twice-differentiated one, but it is not their bound rescaled.}
+Raising a multipole remainder by one derivative raises the power of $t$ and of $1/r$ by one, so the
+object sought has the shape $t^{l+1}$ with one further power of $1/r$ per derivative. It does not
+follow by reusing their inequality, for the reason given in Section~\ref{sec:limits}: with the
+expansion about the centre of mass the dipole vanishes identically, so the lowest omitted order is
+fixed rather than free, and the naive one-order-per-derivative extension of a \emph{force} remainder
+diverges as $\theta\to0$ at $p{=}0$. The derivation has to be redone, which is what
+Section~\ref{sec:order} and this appendix do.
+
+\emph{(ii) Their $a$ is the same kind of length as ours; what differs is what it is compared
+against.} In Theorem~2.1, $a$ is the radius of a sphere about the expansion centre containing the
+sources. When that centre is the centre of mass, such a sphere has radius exactly $\max_b|y_b|$ ---
+the $a$ of \eqref{eq:cellbound}. So the geometry distinction claimed in the main text is \emph{not} a
+difference in the definition of this length: it is that the tree's acceptance criterion is set by the
+cell's geometric size $R$, while the bound is set by $a$, and $a/R$ is a property of the mass
+distribution that reaches $\sqrt3$ for a cell whose mass sits in one corner
+(Section~\ref{sec:criteria}). Their theorem does not connect $a$ to any acceptance criterion, so it
+cannot see that gap; \eqref{eq:cellbound} with the dilation of Section~\ref{sec:criteria} does.
+
+\emph{(iii) The bases differ, so the constants are not directly comparable.} Their expansion is in
+spherical harmonics with plane-wave (diagonal) translation operators; the bound here is in Legendre
+harmonics with direct differentiation, and $\mu_l$ and $\Lambda_l$ of
+\eqref{eq:lem1}--\eqref{eq:lem2} are the exact operator norms \emph{for that basis}. This narrows
+rather than broadens what is claimed: even inside the classical FMM error-analysis framework, no
+order-explicit constant for the second-derivative remainder has been written down.
+
+\subsection{The two lemmas}
+
+Write the $l$-th angular moment of a cell about its centre of mass as
+\begin{equation}
+F_l(\hat x):=\sum_b m_b\,|y_b|^l P_l(\hat x\cdot\hat y_b),
+\qquad
+h_l(x):=r^{-(l+1)}F_l(\hat x),
+\end{equation}
+so that the exact potential is $\sum_l h_l$ and truncating at order $L$ leaves
+$\mathcal R_L=\sum_{l>L}h_l$. Then, with $\|\cdot\|$ the $L^2$ norm on the sphere normalised by
+$1/4\pi$ and $|\cdot|_F$ the Frobenius norm,
+\begin{align}
+\big\|\nabla h_l\big\| &\le \mu_l\,\|F_l\|, &
+\mu_l &= (2l+1)\sqrt{l+1},
+\label{eq:lem1}\\
+\big\|\nabla^2 h_l\big\|_F &\le \Lambda_l\,\|F_l\|, &
+\Lambda_l &= (2l+1)\sqrt{(l+1)(l+2)(2l+3)} .
+\label{eq:lem2}
+\end{align}
+
+\emph{Derivation.} Expand $F_l=\sum_m c_m\tilde Y_{lm}$ in a basis orthonormal under
+$d\Omega/4\pi$, so $\|F_l\|^2=\sum_m|c_m|^2$. Since $\nabla^2h_l=\sum_m c_m\nabla^2 h_{lm}$, Cauchy--Schwarz
+gives $|\nabla^2h_l(\hat x)|_F\le\|F_l\|\sqrt{\sum_m|\nabla^2h_{lm}(\hat x)|^2_F}$, and the sum is
+\emph{independent of $\hat x$} by rotation invariance, so it is one number per order. Evaluating it
+uses the reproducing kernel of the degree-$l$ space, which by the addition theorem is
+$\sum_m\tilde Y_{lm}(\hat x)\tilde Y_{lm}(\hat x')=(2l+1)P_l(\hat x\cdot\hat x')$:
+\begin{equation}
+\Lambda_l^2=\sum_{ij}\partial_i\partial_j\partial'_{i}\partial'_{j}
+\Big[(2l+1)P_l(\hat x\cdot\hat x')\,|x|^{-(l+1)}|x'|^{-(l+1)}\Big]_{x=x'} .
+\end{equation}
+At $x=x'$ the only available tensors are $\delta_{ij}$ and $\hat x_i\hat x_j$; contracting and
+reducing with the Legendre equation gives $\Lambda_l^2=(2l+1)^2(l+1)(l+2)(2l+3)$ and, one order down,
+$\mu_l^2=(2l+1)^2(l+1)$. The $l{=}0$ case is exact and checkable by hand: $\Lambda_0=\sqrt6$ and
+$\|\nabla^2 r^{-1}\|_F=\sqrt6/r^3$ for $F_0\equiv1$. Note $\Lambda_0\ne0$: an exterior solid harmonic
+is harmonic, so only its \emph{trace} vanishes, not its Hessian. Both constants were verified
+independently by fourth-order finite differences of $h_{lm}$ over the full real basis for $l\le12$,
+agreeing with the closed forms to $2.8\times10^{-7}$ (\texttt{scripts/\_hessian\_constant.py}).
+
+\subsection{The cell bound, and its geometry dependence}
+
+Summing \eqref{eq:lem2} over the omitted orders and using $\|F_l\|\le\sup|F_l|\le\sum_b m_b|y_b|^l=:S_l$,
+\begin{equation}
+\big\|\nabla^2\mathcal R_L\big\|_F
+\;\le\;\sum_{l>L}\Lambda_l\,S_l\,r^{-(l+3)}
+\;\le\;\frac{M}{r^{3}}\sum_{l>L}\Lambda_l\,t^{\,l},
+\qquad t:=\frac{a}{r},\quad a:=\max_b|y_b| .
+\label{eq:cellbound}
+\end{equation}
+This is Dehnen-shaped but one derivative higher: the order factor $t^{L+1}$ is the same one Dehnen's
+force bound carries, there is one extra power of $1/r$, and because $\Lambda_l\simeq2\sqrt2\,l^{5/2}$
+grows faster than Dehnen's linear-in-$l$ coefficient the pole in $1/(1-t)$ is of higher order.
+Bounding $\Lambda_l\le2(2l+1)(l+1)(l+2)$ makes the sum elementary and gives the explicit form
+$\|\nabla^2\mathcal R_L\|_F\lesssim2(M/r^3)t^{L+1}(L+1)^3/(1-t)^4$ in the large-$L$, $t\to1$ regime.
+
+\noindent\textbf{The criterion's $\theta$ is not the bound's $t$, and the gap is the cell's geometry.}
+The acceptance test bounds $R/r$ with $R$ the cell's geometric size, while \eqref{eq:cellbound} needs
+$t=a/r$ with $a$ the distance from the \emph{centre of mass} to the farthest particle. The two differ
+by the dilation $(a/R)^{l_{\min}}$, where $l_{\min}$ is the first non-vanishing omitted order --- $2$
+for the monopole, because the dipole dies at the centre of mass, and $3$ once the quadrupole is
+retained. $a/R$ is a property of the mass distribution, not of $\theta$: measured here it is $0.837$
+for a uniform cube, $0.698$ for a slab of aspect $1/4$ and $0.693$ for one of aspect $1/8$, while a
+cell whose mass sits in one corner reaches $\sqrt3=1.732$. So a size-based opening test at fixed
+$\theta$ is \emph{not} a fixed error bound: the same $\theta$ admits errors differing by up to $3\times$
+at $l_{\min}=2$ and $5.2\times$ at $l_{\min}=3$ purely from where the mass sits inside the box. This
+is the quantitative form of the geometry dependence that defect D8
+(Appendix~\ref{app:provenance}) exposed on the octree side.
+
+\subsection{Measured looseness, and one recorded failure}
+
+Table~\ref{tab:secondorder} reports \eqref{eq:cellbound} against the exact single-cell remainder: a
+cell of 1500 unit masses in a box of side $R=1$, queries on 32 directions per radius, three seeds,
+and the reference a brute-force sum over the same particles. \textbf{The bound is never violated.}
+Its looseness is $11.5$--$48.5\times$ depending on radius and order, and it is stable in $r$, which is
+the diagnostic that the \emph{power} is right and only the constant is conservative --- the opposite
+signature from a bound whose exponent is wrong, which would drift systematically in $r$.
+
+\begin{table}[t]
+\centering\small
+\caption{Bound~\eqref{eq:cellbound} over the measured single-cell second-derivative remainder.
+``harmonic'' feeds the exact $\|F_l\|$; ``isotropic'' uses the crude $S_l\le Ma^l$, i.e.\ it throws
+away the cell's symmetry. Both are valid; the ratio is how much is thrown away. \textbf{No sampled
+interaction violates the bound.} The last column is the first version of the constant,
+$\sqrt{3/2}(l+1)(l+2)r^{-(l+3)}$, which is the maximum over the \emph{zonal} harmonic rather than the
+operator norm on general harmonics: it sits \emph{below} the measured remainder, so it was never a
+bound. It is kept on the record rather than deleted. All entries measured, none fitted.}
+\label{tab:secondorder}
+\begin{tabular}{llrrrr}
+\toprule
+cell & retained & $r/R$ & bound (harmonic) / meas. & bound (isotropic) / meas. & earlier (non-)bound / meas. \\
+\midrule
+cube & $l\le0$ & 1.5  & 48.54 & 1428.54 & 10.67 \\
+cube & $l\le0$ & 4.0  & 19.92 & 1203.23 & 5.56 \\
+cube & $l\le0$ & 32.0 & 11.54 & 5479.01 & 3.68 \\
+cube & $l\le2$ & 1.5  & 48.08 & 1261.83 & 9.96 \\
+cube & $l\le2$ & 32.0 & 27.50 & 1647.20 & 6.86 \\
+slab $1/8$ & $l\le0$ & 1.5  & 19.34 & 144.80 & 5.30 \\
+slab $1/8$ & $l\le0$ & 32.0 & 11.62 & 527.83 & 3.72 \\
+slab $1/8$ & $l\le2$ & 1.5  & 41.71 & 476.56 & 8.77 \\
+slab $1/8$ & $l\le2$ & 32.0 & 31.78 & 1762.80 & 7.72 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Why the isotropic form is unusable, and what that says about symmetric cells.} The
+$S_l\le Ma^l$ column is loose by up to $5479\times$, and the looseness \emph{grows with $r$} --- an
+apparent drift of $r^{+0.6}$ that is pure book-keeping. The cause is symmetry: a uniform cube has
+inversion symmetry about its centre of mass, so its odd moments vanish identically while
+$S_3,S_5,\dots$ stay finite, and the sum then carries orders that contribute nothing to the true
+remainder. Feeding the exact $\|F_l\|$ instead makes those orders vanish as they should and collapses
+the looseness by two orders of magnitude. A practitioner should therefore never use the
+extent-only form; the harmonic norm costs $O(n(2l+1))$ per order and no pairwise work.
+
+\noindent\textbf{What this bound is and is not.} It is a \emph{provable} per-interaction upper bound
+on the second-derivative remainder of a truncated multipole expansion about a cell's centre of mass,
+with the order $L$, the size-to-distance ratio $t$ and the cell's mass distribution and aspect ratio
+entering explicitly, and with constants that are exact rather than fitted. It is not tight: an
+$11$--$48\times$ factor separates it from the measured remainder on these cells, so it certifies
+rather than predicts. \textbf{On real data it is looser still, and the looseness is not a constant.}
+Running the same test on the actual admitted cells of the CAMELS $L25n256$ snapshot (a $2\times10^{4}$
+subsample, $128$ query nodes, brute-force reference, $\theta=0.5$, quadrupole retained) gives
+\textbf{no violation on any node}, with a looseness of \textbf{median $306\times$}, tightest $11\times$
+and worst $1026\times$; the corresponding figures are $183\times$ on a synthetic cloud at
+$N=4000$ and $267\times$ at $N=50000$. \textbf{At the full $2.3$M scale}, over the $1{,}643{,}251$ far
+interactions actually admitted at $\theta=0.5$ with the centre-of-mass criterion and $2{,}048$ sampled
+query nodes, the bound again holds on \textbf{every node --- $0$ violations} --- with a looseness of
+\textbf{median $426\times$} (tightest $30\times$, worst $2534\times$).
+
+\textbf{That is a sampled statement, so we hardened it rather than trusting one draw.} The per-node
+remainder is heavy-tailed --- established independently in Section~\ref{sec:scale} --- so a bound
+verified on one draw of $2{,}048$ nodes is a claim about that draw until it is repeated. We repeated
+the $2.3$M test in float64 under \emph{all three} acceptance criteria and \emph{five} independent
+query sets: six runs, $12{,}288$ sampled nodes in total, and \textbf{$0$ violations in every one},
+with the tightest ratio anywhere $20.5$ and the median looseness $407$--$513\times$. The geometry
+premises are re-audited per run and hold throughout ($a/r\le0.750$, $a/\text{size}\le1.245$ against
+the invariant's $\sqrt3$, and no interaction with $a\ge r$). \textbf{At the paper's title scale} we also ran
+the same test on the entire $16.7$M snapshot --- deliberately the same $N$ as the operator validation
+of Section~\ref{sec:scale}, so that bound and operator are verified at the same scale rather than at
+two different ones: $3{,}927{,}827$ cells, $1{,}060{,}190$ far interactions actually admitted, $1{,}024$
+sampled query nodes, and again \textbf{$0$ violations}, with a looseness of
+\textbf{median $436\times$} (tightest $28.3\times$, worst $3671\times$) and the same geometry premises
+holding ($a/r\le0.578$, $a/\text{size}\le1.274$, no interaction with $a\ge r$, no non-convergent
+cell). \textbf{So the bound is verified at the scale in this paper's title, not only at the scale of
+its tables.} The looseness chain is $186\times\to306\times\to426\times\to436\times$ across
+$4$k$\to20$k$\to2.3$M$\to16.7$M: it grows with scale and appears to be \emph{saturating}, which is the
+signature of a bound whose exponent is right --- a bound with the wrong power of $r$ would drift
+without limit instead.
+
+\noindent\textbf{The measured side of that test must be evaluated in float64, and getting this wrong
+manufactures violations.} The remainder is a \emph{difference} of two gradient sums whose norms are
+$\sim10^{4}$ times the difference itself, so a float32 evaluation is dominated by rounding: at the
+median it inflates the measured remainder by $13.9\times$, which simultaneously \emph{understates}
+the looseness and invents violations. Concretely, the identical $2.3$M configuration in float32
+reports \textbf{two violations} and a looseness of $32.6\times$; in float64 the same run reports
+\textbf{none} and $425.6\times$ --- with every bound-side quantity agreeing to six significant
+figures and the tail share bit-identical. \texttt{scripts/error\_law\_bound\_sampled.py
+--field-dtype float64} is the committed configuration; the float32 numbers are kept in
+Appendix~\ref{app:provenance} as the reason the flag exists. That is
+why the same machinery is paired in
+Section~\ref{sec:selfcertify} with an a posteriori estimator built from the operator's own
+next-order surplus, which is far tighter because it is the omitted term itself rather than a bound on
+it --- and why that estimator's failure, reported there, matters. We are also unable to claim that no
+derivative remainder exists in the classical FMM literature
+(Appendix~\ref{app:provenance}, D7); what is new here is that the constant is exact, that the geometry
+dependence is explicit, and that the bound is verified against measured per-interaction remainders
+rather than asserted.
+
+\section{Reading the cost tables}\label{app:scaling}
+\noindent\textbf{The opening-angle sweep, and what it is not.} A separate sweep varies the
+\emph{opening angle} $\theta$ at fixed multipole truncation (monopole only, $p=0$), over the six
+values $\theta=0.467,0.35,0.28,0.233,0.20,0.175$; the measured relative force error falls
+monotonically as the criterion tightens: $0.0032450$, $0.0014542$, $0.00077348$, $0.00047959$,
+$0.00028759$, $0.00018170$. (The pre-D8 artifact stored $0.0312507$ for the loosest setting, i.e.\
+$9.6\times$ worse: this curve is another measurement that moved with the geometry fix.) The
+comparison curve stored alongside is a \emph{scaling proxy}, not Proposition~\ref{prop:bound}
+evaluated with realised constants, so what this supports is narrow: the error decreases with a
+tighter opening, consistent with the $R/r$ dependence. It does \textbf{not} measure the \emph{order}
+dependence, because $p$ never changes here --- that is Section~\ref{sec:order}, and the two sweeps
+must not be conflated. The artifact stores this $\theta$-sweep under the key \texttt{error\_vs\_order}
+although $\theta$ is the swept variable; the misnomer is flagged in Appendix~\ref{app:provenance} so a
+reader of the artifacts is not misled.
+
+The tables in this appendix and in Section~\ref{sec:scaling} measure three different quantities, and
+they must not be combined into a single curve:
+\begin{itemize}\itemsep2pt
+\item \textbf{Forward-pass time} (Table~\ref{tab:time}) is a single forward pass on a controlled
+particle set of increasing $N$ at a fixed configuration. It is the only time measurement here that
+varies $N$ cleanly.
+\item \textbf{Peak memory} (Tables~\ref{tab:mem} and~\ref{tab:memdeep}) is the peak CUDA allocation
+of a single forward pass. The capped and uncapped interaction-list series are \emph{different
+configurations}, so the two are not one function of $N$.
+\item \textbf{Opening-angle error} (Section~\ref{sec:scaling}) is a force-accuracy measurement, not a
+cost measurement.
+\end{itemize}
+\noindent None of these is a full-simulation wall-clock. We deliberately report no such number: the
+operator's cost inside a production loop depends on how often the particle set changes, and therefore
+how often the cached tree and interaction list must be rebuilt --- which we have not benchmarked. The
+caching result is a statement about repeated calls on a \emph{static} particle set.
+
+\section{Forward-pass time table}\label{app:tables}
+\begin{table}[h]
+\centering
+\caption{Forward-pass time of the HMMP operator versus $N$ at fixed configuration
+(\texttt{scripts/scaling.py}), post-D8, one A800. Over a $20\times$ range in $N$ the time grows
+$47.79\times$. We do \textbf{not} read an exponent from this: the same configuration on CPU grows
+$26.68\times$ over the same range, so the ratio is device-dependent and the small-$N$ end is
+overhead-dominated. The admitted far-interaction count --- measured by the two-arm comparison of
+\texttt{scripts/compare\_d8\_cost\_ab.py}, which prints the two reference ratios beside it --- grows
+$71.0\times$ over the same range, i.e.\ faster than $O(N\log N)$, because the benchmark clouds are
+not self-similar. Four points cannot separate these, so we report the measurements rather than a
+fitted exponent.}
+\label{tab:time}
+\begin{tabular}{lrr}
+\toprule
+$N$ & HMMP time (s) & ratio vs $N{=}1000$ \\
+\midrule
+1{,}000 & 0.015203 & 1.000000 \\
+3{,}000 & 0.050825 & 3.343671 \\
+10{,}000 & 0.223754 & 14.720343 \\
+20{,}000 & 0.726464 & 47.792956 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The pre-D8 table gave $0.205239\to4.155135$\,s, a $20.25\times$ growth: the geometry fix
+made the operator admit more far interactions and therefore cost more, so the two tables are not the
+same measurement and the earlier one must not be quoted beside this. The brute-force reference in the
+A800 run is \textbf{not quotable} --- it is non-monotone ($3.4$\,ms at $N=1{,}000$ against $1.1$\,ms at
+$N=3{,}000$), i.e.\ overhead-dominated at both points --- so we quote the CPU harness instead:
+$0.039158$\,s at $N=1{,}000$ and $0.265796$\,s at $N=3{,}000$, against the tree's CPU times of
+$0.260325$\,s and $0.886076$\,s at the same $N$. The tree is still the slower method at both points,
+which is why no crossover between the tree and the direct sum is quoted: we can see it has no
+advantage yet at $N=2{,}000$ (Section~\ref{sec:exact}) and that it scales better, but we have not
+measured where the two meet.
+
+\section{Memory-scaling tables}\label{app:memtable}
+\begin{table}[h]
+\centering
+\caption{Peak CUDA allocation for a single forward pass, hidden $64$, interaction list
+\emph{uncapped}, post-D8, one A800 (\texttt{scripts/benchmark\_memory.py}). The $2.3$M row failed
+under the default caching allocator and completed at $71.42$\,GB under
+\texttt{expandable\_segments:True}; it is the only row measured with that setting. Pre-D8 the same
+series ended at $11794.97$\,MB.}\label{tab:mem}
+\begin{tabular}{lr}
+\toprule
+$N$ & Peak memory (MB) \\
+\midrule
+10{,}000 & 199.12 \\
+50{,}000 & 1014.17 \\
+100{,}000 & 2207.70 \\
+200{,}000 & 5180.30 \\
+500{,}000 & 13064.96 \\
+1{,}000{,}000 & 28082.88 \\
+2{,}300{,}000 & \textbf{71416.82}$^{\dagger}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Same measurement with the interaction list \emph{capped} at $2.5$M entries, post-D8. This is
+a different configuration from Table~\ref{tab:mem}, not a continuation of it; the cap is what the
+single-device $2.3$M runs used. Pre-D8 the same series ended at $3780.78$\,MB.}\label{tab:memdeep}
+\begin{tabular}{lr}
+\toprule
+$N$ & Peak memory (MB), capped \\
+\midrule
+10{,}000 & 198.17 \\
+50{,}000 & 723.91 \\
+100{,}000 & 694.13 \\
+200{,}000 & 996.67 \\
+500{,}000 & 2481.78 \\
+1{,}000{,}000 & 4947.84 \\
+2{,}300{,}000 & 11351.59 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The capped series is not monotone in $N$ between $50$k and $100$k ($723.91$ against
+$694.13$); the difference is $4\%$ in two independent processes and we read it as allocator noise
+rather than as a real inversion, but it is small enough to record rather than smooth. $^{\dagger}$The
+uncapped $2.3$M row requires \texttt{PYTORCH\_CUDA\_ALLOC\_CONF=expandable\_segments:True}: under the
+default allocator the run dies with CUDA out of memory after $72.89$\,GiB is in use
+(\texttt{outputs/memory\_hmmp\_2M3\_uncapped\_postd8.log}, and the passing
+\texttt{expandable\_segments} run is \texttt{outputs/memory\_hmmp\_2M3\_uncapped\_expseg\_postd8.json}).
+So the $2.3$M claim survives
+the geometry fix, but with much less margin than before: the uncapped configuration is inside one
+$80$\,GB device only just, while the capped one is comfortable at $11.35$\,GB. That is a feasibility
+statement, not an accuracy statement, and Section~\ref{sec:scaling} says so explicitly.
+
+\section{Aggregation level of the order-shift measurement}\label{app:percell}
+\noindent\textbf{The per-$\theta$ means behind Section~\ref{sec:order}'s two-row comparison.}
+Synthetic lognormal clouds, post-D8, $p{=}0$ over $p{=}1$, multiplied by $\theta$; per-$\theta$ means
+over $N\in\{2{,}000,8{,}000,32{,}000\}$:
+
+\begin{center}
+\begin{tabular}{lrrrrrr}
+\toprule
+$\theta$ & 0.15 & 0.20 & 0.25 & 0.30 & 0.40 & 0.50 \\
+\midrule
+force & 2.532 & 2.474 & 2.402 & 2.352 & 2.336 & 2.249 \\
+tidal & 1.836 & 1.839 & 1.759 & 1.743 & 1.740 & 1.726 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Over $\theta\le0.5$: force $2.391$, scatter $4.3\%$; tidal $1.774$, scatter $2.9\%$.
+Artifact \texttt{outputs/\allowbreak multipole\_order\_sweep\_\allowbreak tidal\_fixed.json}.
+
+Section~\ref{sec:order} reports that the measured order-shift product depends on the particle
+distribution, and this appendix gives the measurement behind the qualification that a bound is a
+per-interaction object while our numbers are aggregates. On one shared interaction list (real
+CAMELS $N=100{,}000$ and a synthetic $N=100{,}000$ cloud, $Q=512$ query nodes, $\texttt{max\_leaf}=8$,
+$\theta\in[0.15,0.5]$) we evaluate the $p{=}0$ and $p{=}1$ remainders at three levels, each a ratio
+of $p{=}0$ to $p{=}1$ multiplied by $\theta$:
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+level & synthetic & CAMELS & CAMELS drift \\
+\midrule
+summed per-interaction remainders & $1.169 \pm 0.7\%$ & $1.066 \pm 12.4\%$ & $1.21 \to 0.93$ ($\times1.30$) \\
+coherent aggregate over cells & $1.193 \pm 4.0\%$ & $1.037 \pm 22.4\%$ & $1.34 \to 0.81$ ($\times1.65$) \\
+per-node relative mean & $1.275 \pm 3.7\%$ & $1.040 \pm 22.7\%$ & $1.36 \to 0.80$ ($\times1.69$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Each cell contribution is the direct sum over \emph{all descendant particles} of the
+admitted cell, so both sides of each comparison use the same source set; obtaining that expansion
+correctly is what retired an earlier probe that used a leaf-only expansion on cells at every level.
+On the controlled cloud the three levels agree and are constant. On the real snapshot all three
+drift, the per-interaction level least ($\times1.30$) and the aggregate most ($\times1.65$), so the
+drift is not purely an artefact of summing vectors coherently, but it is also not a measurement of a
+per-interaction constant: each of the three is a weighted average over the admitted-cell
+distribution. Reproduce with \texttt{scripts/diagnose\_aggregate\_vs\_percell.py}
+(\texttt{outputs/agg\_vs\_percell\_*\.json}).
+
+\begin{table}[h]
+\centering
+\caption{The order sweep of Section~\ref{sec:order} repeated on the real CAMELS snapshot at three
+scales, post-D8, $\theta\in[0.15,0.60]$, $Q=2{,}048$ query nodes, $\texttt{max\_leaf}=8$. The product
+is the consecutive-order error ratio multiplied by $\theta$, i.e.\ the quantity
+Proposition~\ref{prop:bound} predicts to be constant; \emph{scatter is the sample standard deviation
+over the seven $\theta$ values, relative to the mean}, and ``range'' is the ratio of the largest
+product to the smallest. The synthetic value is $2.4$ for the force and $1.8$ for the tidal tensor.
+\textbf{The force product is never constant here, and the tidal one stops being measurable at
+$2.3$M}: its scatter grows to $53.9\%$ and its product moves over an $8.1\times$ range. What holds at
+every scale is the \emph{sign} --- the $p{=}0$/$p{=}1$ ratio exceeds one everywhere ($4.0$--$24.5$
+force, $1.4$--$12.1$ tidal).}\label{tab:camelsorder}
+\begin{tabular}{lrrrrr}
+\toprule
+$N$ & force product & force scatter & force range & tidal product & tidal scatter \\
+\midrule
+$10^{5}$ & $3.249$ & $15.7\%$ & $1.64\times$ & $1.758$ & $3.9\%$ \\
+$10^{6}$ & $3.743$ & $24.4\%$ & $1.91\times$ & $1.351$ & $35.7\%$ \\
+$2.3\times10^{6}$ & $3.318$ & $23.5\%$ & $1.86\times$ & $1.121$ & $53.9\%$ \\
+\midrule
+\multicolumn{6}{l}{\footnotesize tidal range: $1.10\times$ / $4.09\times$ / $8.10\times$ at the three scales} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Script \texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.py}, artifacts
+\texttt{order\_sweep\_tidal\_camels\_n\allowbreak\{100000,1000000,2300000\}\_\allowbreak postd8.json}, whose own summary fields
+(\texttt{ratio\_times\_theta\_mean\_*}, \texttt{...\_rel\_scatter\_*}) are the source of the numbers
+above. Two remarks a reader should carry away. First, the tidal scatter \emph{grows} with $N$
+($3.9\%\to35.7\%\to53.9\%$) while the force scatter does not ($15.7\%\to24.4\%\to23.5\%$), so the
+ordering between the two derivatives that holds on controlled clouds and at $10^{5}$ inverts at the
+scale this paper is about. Second, at $2.3$M the tidal product at the tightest opening
+($\theta=0.15$) is $0.208$, i.e.\ the quadrupole is worth only a factor $1.4$ there against $12.1$ at
+the same $\theta$ for $N=10^{5}$: the tidal order shift is not merely noisier at scale, it is weaker.
+
+\noindent\textbf{The single-cell constant, and whether it survives a holdout.} Section~\ref{sec:order}
+asks the aggregate version of this question. The single-cell version is sharper and answerable: take
+one source cell, one query point outside it, and the one-order inequality
+$\varepsilon_1\le C\rho\varepsilon_0$ with $K=(\varepsilon_0/\varepsilon_1)\rho$ and $C=1/\min K$.
+\emph{The inequality as previously reported was not a test}: $C$ was the minimum over the same $900$
+samples the inequality was then evaluated on, so it could not be violated there --- it is the tangent
+line at the worst sample, and it reproduces exactly ($C=5.520$ tidal, $8.897$ force, over $900$
+samples, binding geometry \texttt{G7\_shell}).
+
+So we calibrated on one set and evaluated on another
+(\texttt{scripts/\allowbreak e7\_holdout\_bound.py}, \texttt{outputs/\allowbreak e7\_holdout\_bound.json}). Two splits, and
+they disagree with each other, which is the point.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Holdout test of the one-order constant. Fold A leaves each cell geometry out in turn:
+$C$ is calibrated on the other nine geometries and the inequality is then evaluated on the held-out
+one. Fold B calibrates on two random seeds of the three stochastic families and evaluates on a third,
+unseen seed. ``inflation'' is the factor by which $C$ must be raised to cover the held-out data, so
+$<1$ means the calibration was already conservative there.}\label{tab:e7holdout}
+\begin{tabular}{lrrrr}
+\toprule
+held-out set & tidal infl. & tidal viol. & force infl. & force viol. \\
+\midrule
+\texttt{G2\_two\_mass} & $0.02\times$ & $0/90$ & $0.01\times$ & $0/90$ \\
+\texttt{G3\_line} & $0.03\times$ & $0/90$ & $0.01\times$ & $0/90$ \\
+\texttt{G4\_triangle} & $0.26\times$ & $0/90$ & $0.13\times$ & $0/90$ \\
+\texttt{G5\_uniform} & $0.43\times$ & $0/90$ & $0.23\times$ & $0/90$ \\
+\texttt{G6\_bimodal} & $0.09\times$ & $0/90$ & $0.04\times$ & $0/90$ \\
+\texttt{G8\_heavy\_centre} & $0.38\times$ & $0/90$ & $0.21\times$ & $0/90$ \\
+\texttt{G9\_hollow\_shell\_pair} & $0.38\times$ & $0/90$ & $0.18\times$ & $0/90$ \\
+\texttt{G10\_symmetrized\_uniform} & $0.18\times$ & $0/90$ & $0.09\times$ & $0/90$ \\
+\midrule
+\textbf{\texttt{G7\_shell}} & $\mathbf{2.34\times}$ & $\mathbf{13/90}$ & $\mathbf{4.38\times}$ & $\mathbf{13/90}$ \\
+\midrule
+fresh seed, stochastic families only & $0.43\times$ & $0/180$ & $0.23\times$ & $0/180$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Three readings. \textbf{(i) The constant is carried by one geometry.} Nine of ten held-out
+geometries are covered with room to spare, and the tenth --- the spherical shell, where the octupole
+is weakest --- violates the bound at $13$ of $90$ samples and forces $C$ up by $2.3\times$ (tidal) and
+$4.4\times$ (force). A constant calibrated on arbitrary clouds therefore does \emph{not} transfer to
+the near-degenerate ones. \textbf{(ii) It does transfer between draws.} A fresh seed of the same
+families costs nothing ($0$ violations in $180$ unseen samples, and the held-out draws are milder than
+the calibration set): the failure is between geometries, not between samples. \textbf{(iii) So the
+honest statement of the bound is per family, not universal.} $\sup K$ is finite --- E7's original
+question, answered yes --- but a single number $C$ is only valid for a population of cell geometries
+that includes its binding member, and the paper reports it that way. This is the single-cell
+counterpart of the aggregate drift in Section~\ref{sec:order}, and it explains it: a real snapshot's
+admitted cells are a mixture, and its minimum $K$ is set by whichever near-spherical cells it happens
+to contain.
+
+\section{Disclosed defects and provenance}\label{app:provenance}
+We list here the defects that bear on what this paper reports. Several earlier bookkeeping defects
+--- misnamed artifact keys, a table transcribed from an older run, an inert seed control in training
+scripts that no result here uses --- are not
+about this paper's claims, and are recorded instead in the repository
+(\texttt{docs/PROVENANCE.md}), which carries the full evidence chain for every number.
+
+\noindent\textbf{(D2) The quadrupole far-field term was wrong, and is fixed.} It was implemented as
+$0.5\,(\hat r^{\top}D\hat r)\,\hat r/r^{3}$, which has the wrong radial power, omits the $D\hat r$
+term, drops the trace, and carries the wrong sign; it made the far field roughly $20\times$
+\emph{worse} than the monopole alone. The correct form now used is
+$0.5\,[-6(D\hat r)-3\,\mathrm{tr}(D)\hat r+15(\hat r^{\top}D\hat r)\hat r]/r^{4}$ with
+$D=\sum_j m_j(y_j-c)(y_j-c)^{\top}$. It is pinned by an exact increment identity for two equal
+masses, $\Delta a=-6md^{2}/R^{4}$, which the old code missed by a factor of $\sim4000$, and by nine
+unit tests. The corrected term is what produces the $2.28$--$2.43\times$ improvement reported in
+Section~\ref{sec:order}; without it the quadrupole made results worse, which is the failure mode this
+test now prevents.
+
+\noindent\textbf{(D6) The second-derivative reference was not the second derivative, and no quadrupole
+contribution to it existed.} \textbf{This invalidated every tidal number this paper reported before
+this revision, and is why those numbers changed.} The tidal tensor was computed as
+$3d_id_j/r^{2}-\delta_{ij}/r^{3}$, but the Jacobian of $a_i=m\,d_i/r^{3}$ is
+$3d_id_j/r^{5}-\delta_{ij}/r^{3}$: the first term was missing a factor $1/r^{3}$. The two expressions
+agree only at $r=1$, which is why it survived several revisions. Against
+\texttt{torch.autograd} the old expression is wrong by $24{,}000$ at $R=0.05$ (sign included) and by
+$2.98$ at $R=5$, while the corrected one matches to $10^{-12}$; on a $2{,}000$-particle cloud the two
+tensors differ by $1280\times$ in norm, and the old object was $86.1\%$ isotropic --- a scalar times
+the identity --- where a Newtonian tidal tensor is traceless. Separately, no quadrupole contribution to
+the tidal tensor was implemented anywhere, so the ``tidal'' far field was monopole-only even where the
+force used the quadrupole. Consequently the earlier statement that the tidal error is $\approx2\times$
+the force error was an artefact: the corrected factor is $5$--$6\times$, and the leading error's
+$\theta$-power is $3.56$ (force: $3.23$), so the ``anomalous'' second-derivative $\theta$-scaling
+claimed in an earlier draft does not exist. One canonical reference now exists
+(\texttt{src/laniakea\_hmmp/models/exact\_field.py}), pinned to the autograd Jacobian by eleven tests,
+and the operator carries both derivatives including the quadrupole term. Force numbers are unaffected:
+the re-run reproduced every published force error bit-for-bit.
+
+\noindent\textbf{(D7) The novelty claim is scoped to the constants and the geometry, not to the
+existence of a remainder.} An earlier draft of this work claimed that no second-derivative remainder
+exists, on the grounds that we could not find one. \textbf{That claim is withdrawn, because
+Appendix~\ref{app:secondorder} derives one.} What survives is narrower and defensible. The classical
+FMM error-analysis line --- \citet{cheng1999fast}, and the 3-D potential
+convergence theorems that follow it --- is the most plausible place such a derivative bound already
+exists. \textbf{We have now read the 1999 paper, and it does not contain one: it states the classical
+\emph{potential} remainder only.} The five remainder statements, their equation numbers, the basis
+difference and the three reasons they do not differentiate into ours are set out at the head of
+Appendix~\ref{app:secondorder}, which is where the comparison belongs; the exhaustive probe counts are
+in \texttt{docs/PROVENANCE.md} \S4d. What remains unread is the literature that \emph{follows} that
+line rather than the line's origin.
+
+The five further candidates that an earlier access failure had left unread have also since been
+obtained and read, including the one that mattered most: a \emph{learned} multipole
+translation operator, which is where a truncation bound on learned hierarchical machinery would have
+lived. \textbf{All five report measured accuracy and state no bound}; none bounds a derivative, and
+none carries an order-dependent constant. We therefore claim novelty of the
+\emph{explicit per-order
+constants}, of the centre-of-mass-versus-geometric-size distinction, and of the per-interaction
+verification against measured remainders --- \textbf{not} priority for the existence of a derivative
+remainder. Should such a bound exist in work we have not read, the contributions that stand are still
+the law's explicit constants and geometry content, the measurement at $2.3$M, and the demonstration
+that the measured order-shift product is data-dependent (Section~\ref{sec:order}).
+
+\noindent\textbf{(D8) Our octree's recorded cell centres were offset by a full cell side.} The
+recorded centre of every non-root cell --- the point both geometric acceptance tests measure their
+acceptance distance to --- was wrong. The subdivision stepped from a parent centre by $s/2$ where an
+octant centre sits at $s/4$, so the recorded centre landed a full cell side from the box whose
+particles it describes, and the error compounds down the tree. Measured on three point sets
+(uniform random, Gaussian, and a two-body-dominated scene), \textbf{$97$--$99\%$ of cells had member
+particles outside $[\text{centre}\pm\text{size}/2]$}, with a worst-case offset of exactly $2.0$
+half-sides. Two further consequences followed: the octant \emph{partition} below depth one also used
+the wrong centre, so the tree was not a spatial subdivision; and callers centred the root on the
+positional \emph{mean} while sizing it by the maximum \emph{span}, so on a non-uniform cloud
+particles escaped the root box itself. The multipole \emph{moments} were computed from particle
+membership and were never affected --- which is why the published centre-of-mass test, added late,
+looked healthy while the geometric tests did not.
+
+\emph{How it surfaced, and what it cost us.} The symptom was a catastrophic, intermittent blow-up at
+$\theta=0.70$ in the geometric-centre test, which an earlier draft of this paper reported as a
+limitation of the Barnes--Hut acceptance criterion. That reading was wrong: the published criterion
+measures the distance to the cell's centre of mass, and none of the production tree codes we checked
+(GADGET-2/3/4, SWIFT, AREPO, GIZMO, PKDGRAV3, ChaNGa) uses a geometric-centre acceptance test, so
+none of them is exposed. We withdrew the failure-mode contribution in full. \textbf{The correction is
+worth $11$--$33\times$ in accuracy at fixed $\theta$ and costs nothing}: at $N=2{,}000$, $\theta=0.5$
+the global relative force error falls from $0.021419$ to $0.001996$; at $N=10^{5}$ the per-node force
+and tidal errors fall by $11\times$ and $15\times$ ($p{=}0$) and $22\times$ and $33\times$ ($p{=}1$).
+
+\emph{Why it survived every existing test.} A two-body orbit keeps both particles in one leaf; a
+shallow tree admits few far cells; and the moment aggregation reads particle membership rather than
+cell geometry, so nothing in the suite ever compared a cell centre against its contents. The
+invariant that catches it is independent of any multipole approximation --- every cell's particles
+must lie inside $[\text{centre}\pm\text{size}/2]$ --- and is now asserted by
+\texttt{tests/test\_cell\_geometry.py}, which also asserts that the pre-fix construction still
+\emph{reproduces} the defect so that artifacts predating the fix stay interpretable. Every
+\emph{accuracy} number in this paper is post-D8; \texttt{legacy\_geometry=True} restores the old
+behaviour. \textbf{The two cost tables are the exception}: the peak-memory and forward-pass-time
+series resolve to artifacts that carry no post-D8 marker and are not part of the released set
+(\texttt{outputs/memory\_hmmp\_2M3\_*.json}, \texttt{outputs/scaling.json}), so their post-fix
+status is not established here. The geometry correction changes the tree, so both will move.
+\texttt{docs/PROVENANCE.md} \S3.5 tracks them.
+
+\subsection{Scope of the D8 correction: what is post-fix, and what is not}
+\label{app:d8scope}
+
+The geometry fix changes the tree, and therefore every measured error and every convergence curve.
+It does \emph{not} change the algebra of the second-derivative bound or its exact per-order
+constants, which are properties of the multipole expansion. Table~\ref{tab:d8scope} separates the two.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{p{0.50\columnwidth}p{0.40\columnwidth}}
+\toprule
+claim / result & status with respect to D8 \\
+\midrule
+bound, exact constants, per-interaction verification & geometry-independent; verified without the tree \\
+all accuracy/error numbers cited here (order shift, quadrupole, eigen/flip, gradient, 16.7M) & post-D8; re-run or recomputed with the corrected tree \\
+the D8 correction itself ($11$--$33\times$) & post-fix minus pre-fix; the only pre-fix numbers are quoted as that comparison \\
+two cost series (forward time, peak memory) & \textbf{not established post-D8}; excluded from the claims and flagged in the text \\
+periodic-boundary statement & convention, independent of D8 \\
+\bottomrule
+\end{tabular}
+\caption{Which claims depend on the corrected octree geometry. The bound's validity is independent
+of D8; the numerical error levels and convergence curves are not.}
+\label{tab:d8scope}
+\end{table}
+
+\noindent\textbf{Summary.} Every \emph{accuracy} number cited in this paper is
+post-D8. The fix moves the convergence curves and the absolute errors; it does not invalidate the
+second-derivative bound, whose constants are exact and whose verification is per interaction. The
+only series not established post-D8 are the two cost tables, which the text already marks as such.
+
+\section{Comparing acceptance criteria after the geometry fix}\label{app:surface}
+Three acceptance tests are implemented: distance to the cell's centre of mass (\texttt{com}, the
+published criterion), distance to the geometric cell centre (\texttt{geo}), and distance to the
+cell's circumsphere boundary (\texttt{surface}). Section~\ref{sec:limits} explains why an earlier
+draft measured the second of these, mistook defect D8 for a property of Barnes--Hut, and reported
+the resulting blow-up as a limitation. With the geometry corrected the three can be compared as an
+accuracy-versus-cost question rather than as a failure and a fix. Two-body-dominated scene,
+$N=600$, $Q=256$, $p{=}0$, same particles, same tree and same operator, only the acceptance test
+changed:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{force rel.\ err} & \multicolumn{2}{c}{tidal rel.\ err} \\
+$\theta$ & 0.50 & 0.70 & 0.50 & 0.70 \\
+\midrule
+com     & $1.08\times10^{-4}$ & $2.96\times10^{-4}$ & $2.92\times10^{-3}$ & $8.01\times10^{-3}$ \\
+geo     & $1.32\times10^{-4}$ & $4.70\times10^{-4}$ & $3.26\times10^{-3}$ & $9.28\times10^{-3}$ \\
+surface & $\mathbf{3.73\times10^{-5}}$ & $\mathbf{8.38\times10^{-5}}$ & $\mathbf{1.24\times10^{-3}}$ & $\mathbf{2.26\times10^{-3}}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Two things follow. \textbf{(i) The published criterion is the better of the two single-point
+tests, and the circumsphere test is better still} --- by $2.9\times$ on the force and $2.4\times$ on
+the tidal tensor at $\theta=0.50$ relative to \texttt{com}, at the cost of more far-field entries per
+query node. We report that as a trade, not as a correctness fix. \textbf{(ii) None of the three fails
+at any $\theta$ we tested}, $\theta=0.70$ included; the catastrophe earlier drafts attributed to the
+acceptance test was defect D8 and is withdrawn.
+
+The \texttt{surface} test is \emph{not} novel: an analytically bounded multipole acceptance criterion
+is due to Warren \& Salmon (1993), Dehn\-en (2002) advertises a simplified such criterion, and ChaNGa
+ships a sphere--box surface test. Our contribution here is the measurement under matched conditions,
+not the criterion.
+
+These numbers regenerate with \texttt{scripts/\_ab\_cell\_centres.py}, which reports all three
+criteria on both geometries and prints the pre-fix comparison alongside.
+
+\noindent\textbf{Table~\ref{tab:eigen}: the physical metrics behind Section~\ref{sec:physics}.}
+Principal-axis misalignment is quoted only over nodes whose top two $|\lambda|$ differ by at least
+$1.5\times$ ($29$--$40\%$ of nodes here), because an eigenvector is meaningless where the eigenvalues
+are degenerate; the unrestricted p95 is larger by about half again (e.g.\ $0.68^{\circ}$ against
+$0.41^{\circ}$ for the $N=2.3$M, $\theta=0.5$, $p{=}0$ com row), which is itself a reminder that a
+bare angle is a trap. The
+exact field is $71\%$ sheet and $29\%$ filament, so the flip column is a classification change, not a
+boundary effect.
+
+\begin{table}[h]
+\centering
+\caption{Eigenvalue error and principal-axis misalignment (p95, well-separated nodes only) of the
+approximate tidal tensor against the exact one, on the real CAMELS snapshot, $Q=4096$, seed $0$,
+recomputed with the post-defect-D8 tree: \texttt{scripts/eval\_tidal\_eigenmetrics.py}. ``com'' is the
+centre-of-mass acceptance test, ``cell'' the distance-to-cell test. \textbf{The two criteria now agree
+to a few per cent, and neither fails}: at $\theta=0.70$ --- well past the classical safety line
+$\theta<1/\sqrt{3}$ --- the worst misalignment anywhere in the table is $1.3^{\circ}$. An earlier
+revision carried pre-D8 numbers under a \texttt{com} label that the generating script could not then
+produce, because its \texttt{--opening-mode} choices omitted \texttt{com} and defaulted to
+\texttt{center}; those rows are replaced.}\label{tab:eigen}
+\begin{tabular}{lrrrrr}
+\toprule
+$N$ & $\theta$ & opening & $p$ & eig.\ rel.\ err & p95 axis (deg) \\
+\midrule
+$2.3$M & 0.5 & com & 0 & $3.79\times10^{-3}$ & 0.41 \\
+$2.3$M & 0.5 & com & 1 & $1.19\times10^{-3}$ & 0.13 \\
+$100$k & 0.3 & com & 0 & $5.01\times10^{-4}$ & 0.05 \\
+$100$k & 0.5 & com & 0 & $3.13\times10^{-3}$ & 0.39 \\
+$100$k & 0.5 & com & 1 & $1.02\times10^{-3}$ & 0.12 \\
+$100$k & 0.5 & cell & 0 & $3.23\times10^{-3}$ & 0.38 \\
+$100$k & 0.7 & com & 0 & $1.08\times10^{-2}$ & 1.22 \\
+$100$k & 0.7 & cell & 0 & $1.17\times10^{-2}$ & 1.31 \\
+$100$k & 0.7 & cell & 1 & $5.66\times10^{-3}$ & 0.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification fidelity, the column that matters to a user of the tidal tensor: the fraction
+of query nodes whose eigenvalue-sign class (the number of positive eigenvalues, which for a traceless
+tensor is $1$ or $2$ --- see Section~\ref{sec:physics}) differs from the exact one, for the same rows
+as Table~\ref{tab:eigen}. Post-D8 the worst rate in the table is $1.4\%$, and at fixed
+$\theta=0.70$ the acceptance test no longer separates the two criteria --- what used to look like a
+criterion effect was defect~D8.}\label{tab:flip}
+\begin{tabular}{lrrrr}
+\toprule
+$N$ & $\theta$ & opening & $p$ & class flip \\
+\midrule
+$2.3$M & 0.5 & com & 0 & $0.51\%$ \\
+$2.3$M & 0.5 & com & 1 & $0.27\%$ \\
+$100$k & 0.3 & com & 0 & $0.10\%$ \\
+$100$k & 0.5 & com & 0 & $0.17\%$ \\
+$100$k & 0.5 & com & 1 & $0.15\%$ \\
+$100$k & 0.5 & cell & 0 & $0.34\%$ \\
+$100$k & 0.7 & com & 0 & $1.39\%$ \\
+$100$k & 0.7 & cell & 0 & $1.39\%$ \\
+$100$k & 0.7 & cell & 1 & $0.71\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{The acceptance criterion on dynamically hard scenes}\label{app:scenes}
+Appendix~\ref{app:surface} compares the three acceptance tests on one scene at $\theta\le0.70$.
+A centre-of-mass test fails when a cell's mass is poorly separated from the query particle, and that
+is a property of the \emph{scene}, not of $\theta$ alone --- so the comparison is repeated on five,
+sweeping $\theta$ well past the classical $\theta<1/\sqrt{3}\approx0.577$ safety line. Scenes: a
+lognormal cloud, plus four of the sibling project's physical presets, which have deep unequal wells
+and close encounters. $N=600$ ($20{,}000$ for the lognormal), $Q=256$, three query seeds, $p{=}0$,
+against the brute-force reference.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+scene & heaviest-particle mass share & \multicolumn{3}{c}{first $\theta$ at which the test fails} \\
+ & & com & geometric centre & circumsphere \\
+\midrule
+synthetic lognormal   & $\sim0$ & none $\le1.20$ & none $\le1.20$ & none $\le1.20$ \\
+galaxy\_collision     & $7.1\%$  & none $\le1.20$ & none $\le1.20$ & none $\le1.20$ \\
+spiral\_galaxy        & $13.6\%$ & none $\le1.20$ & $\mathbf{1.20}$ & none $\le1.20$ \\
+binary\_star          & $30.1\%$ & none $\le1.20$ & $\mathbf{1.20}$ & none $\le1.20$ \\
+globular\_cluster     & $45.5\%$ & $0.90$ & none $\le1.20$ & none $\le1.20$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Three readings.
+
+(i) \textbf{At the settings users run, there is no failure to report.} The published \texttt{com}
+criterion is clean on every scene at $\theta\le0.80$, and production tree codes default to
+$\theta\approx0.7$ (all of them \texttt{com}-anchored, several using a relative force-accuracy
+criterion instead of a fixed $\theta$ at all). This is the honest scope of the failure-mode question:
+the $\theta=0.70$ collapse reported in earlier drafts was defect D8
+(Appendix~\ref{app:provenance}), and with the geometry corrected nothing takes its place in the
+production range.
+
+(ii) \textbf{The geometric-centre test does have a real boundary, and it is at the analytically
+predicted place.} For that test the minimum separation between the query particle and an admitted
+cell's \emph{expansion} centre is $\text{size}\cdot(1/\theta-\sqrt{3}/2)$, which vanishes at
+$\theta=2/\sqrt{3}\approx1.155$. Above it, admission no longer implies the particle is outside the
+source's bounding sphere. The measured onset is $\theta=1.20$ on the two scenes with the sharpest
+central concentration --- consistent with the prediction, and it appears on exactly the scenes the
+mechanism requires. \textbf{The \texttt{com} test has a tighter line rather than no line:} admission
+gives $r>\text{size}/\theta$ measured to the \emph{centre of mass}, and because the centre of mass may
+sit anywhere inside the box the cell's contents can reach $\sqrt3\,\text{size}$ from it, so strict
+outside-ness is guaranteed only for $\theta\le1/\sqrt3\approx0.577$ --- the classical line, half the
+geometric-centre bound (Section~\ref{sec:criteria} derives both). \textbf{So the two single-point tests
+are not equivalent, and the published one carries the tighter guarantee}, which is the sense in which
+it is the safe one; but since no production code uses a
+geometric-centre acceptance test, this bounds a hypothetical rather than a practice, and it is why we
+report it here rather than in the main text.
+
+(iii) \textbf{The circumsphere test is safe everywhere and the most accurate.} Across every scene and
+every $\theta$ up to $1.20$ its direction cosine stays $\ge0.99998$, and its error is $3$--$10\times$
+below \texttt{com}'s (Appendix~\ref{app:surface}).
+
+\noindent\textbf{One anomaly, traced and resolved.} On \texttt{globular\_cluster} the published
+\texttt{com} criterion shows a sharp jump between $\theta=0.80$ and $0.90$, and it is
+\emph{seed-dependent}: at $\theta=0.90$ the force error is $1.2\times10^{-2}$ with cosine $0.99992$
+for one query draw and $4.7\times10^{-1}$ with cosine $0.88411$ for another, on the same particles and
+the same tree. It is not a criterion failure, and two measurements settle it. First, the error is not
+concentrated: the worst single node carries $5.3\%$ of the total per-node error, and the per-node
+\emph{median} moves smoothly across the onset ($2.74\times10^{-2}\to3.36\times10^{-2}$) --- a genuine
+blow-up is one node dominating, as the D8 artifact was. Second, the admitted cells are legitimate: the
+closest has $|x_{\mathrm{com}}-x|=0.454$ against $\text{size}=0.395$, i.e. $\text{size}/d=0.871<0.90$,
+admitted by design, with the query particle outside the cell. Its circumsphere radius is $0.342$, so
+the particle sits $0.11$ radii outside the source, where the monopole error is
+$O(\text{size}/d)\approx0.87$. That is what $\theta=0.90$ \emph{means} for a monopole expansion.
+
+The seed dependence is then a measurement artifact, and a methodological one: the \emph{global
+direction cosine} over $Q=256$ sampled nodes is fragile --- whether the sample happens to include
+nodes in the near/far transition region swings it from $0.99992$ to $0.884$, while the per-node median
+barely moves. The query-sampling study of Appendix~\ref{app:repro} quotes $1.2$--$1.7\%$ on the
+per-node mean; the cosine is far more sensitive, and should not be quoted from a small sample. This is
+the same lesson as the norm-weighted-statistics warning of Section~\ref{sec:limits}, in a second
+place.
+
+A controlled sweep over heaviest-particle mass fraction ($f=0.005$ to $0.60$, heavy particle at the
+centre) reproduced \emph{no} onset at any $f$, rejecting the obvious hypothesis that concentration
+alone governs it: with the heavy mass at the centre of a symmetric cloud, the expansion centre of
+every enclosing cell sits near the centre and ${\rm size}/d$ is large, so those cells are refused.
+What matters is a cell whose expansion centre lands close to a query particle while the cell stays
+large, which needs an off-centre concentration rather than merely a concentrated one.
+
+\noindent Artifact: \texttt{outputs/d2\_scene\_threshold\_sweep.json};
+scripts \texttt{scripts/d2\_scene\_threshold\_sweep.py},
+\texttt{scripts/d2\_mass\_concentration\_threshold.py}, \texttt{scripts/\_d2\_trace\_globular.py}.
+
+\section{Does the second-derivative error land where it matters?}\label{app:environment}
+The class-flip rate of Section~\ref{sec:physics} is a bare number until it is weighted by environment.
+A misclassified node in an empty region costs nothing; one on a filament spine is a statement about
+where galaxies form. We therefore bin the same query nodes by a $k$-NN density proxy ($k=32$,
+$\rho\propto r_k^{-3}$ with the self excluded) and report the flip rate, the share of all flips, the
+eigenvalue-sign mixture and the eigenvalue scale per octile. Real CAMELS snapshot, $N=100{,}000$,
+$Q=4{,}096$, $\theta=0.5$, centre-of-mass criterion, $p{=}0$; artifact
+\texttt{outputs/misclassification\_vs\_environment.json}, script
+\texttt{scripts/eval\_misclassification\_vs\_environment.py}.
+
+\begin{center}
+\begin{tabular}{rrrrrr}
+\toprule
+density octile & median $\rho$ & exact mix (1-pos/2-pos) & flip rate $p{=}0$ & flip rate $p{=}1$ & share of flips \\
+\midrule
+0 (lowest) & 14.0 & $0.77/0.23$ & $0.0645$ & $0.0488$ & $0.121$ \\
+1 & 18.5 & $0.77/0.23$ & $0.0879$ & $0.0625$ & $0.165$ \\
+2 & 22.4 & $0.76/0.24$ & $0.0723$ & $0.0469$ & $0.136$ \\
+3 & 26.5 & $0.80/0.20$ & $0.0742$ & $0.0508$ & $0.139$ \\
+4 & 31.6 & $0.77/0.23$ & $0.0508$ & $0.0371$ & $0.095$ \\
+5 & 38.7 & $0.76/0.24$ & $0.0684$ & $0.0352$ & $0.128$ \\
+6 & 48.7 & $0.82/0.18$ & $0.0645$ & $0.0449$ & $0.121$ \\
+7 (highest) & 77.3 & $0.79/0.21$ & $0.0508$ & $0.0352$ & $0.095$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The flip rate spans only $5.1$--$8.8\%$ across a factor $5.5$ in density, with no monotone
+trend, and the class mixture is flat at $76$--$82\%$ sheet-like in every octile. The low-density half
+carries $0.140$ of all flips against the high-density half's $0.110$ (a uniform distribution would
+give $0.125$ each), so there is at most a weak tilt towards low density and it is not the dominant
+effect. \textbf{We therefore report no evidence that the second-derivative error concentrates in the
+environments that matter}, and equally no evidence that it avoids them. Two caveats keep this from
+being a stronger statement: the snapshot is at $z\approx6$, where the density contrast is mild, and
+the $k$-NN density on a $100$k subsample is a noisy environment proxy. A cluster-scale or low-redshift
+snapshot would be the right place to repeat it.
+
+\section{The neighbour-cutoff baseline}\label{app:baseline}
+Real CAMELS snapshot, $N=100{,}000$, $Q=2{,}048$ query nodes for the accuracy columns and
+$N=20{,}000$ over \emph{all} nodes for the momentum column, $\theta=0.5$, $\texttt{max\_leaf}=8$,
+post-D8 geometry. The $k$-nn baseline sums the $k$ nearest neighbours of each node directly; $k$ is
+set to the operator's measured terms per query node ($664.6$, i.e.\ $1{,}145{,}335$ far entries plus
+$215{,}667$ near-leaf member particles over $2{,}048$ nodes) so the two cost the same number of
+evaluations. Script \texttt{scripts/eval\_knn\_baseline.py}, artifact
+\texttt{outputs/knn\_baseline\_postd8.json}.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+engine & terms/node & force rel.\ err & tidal rel.\ err & tidal/force & momentum violation \\
+\midrule
+tree, $p{=}0$ & $664.6$ & $3.02\times10^{-3}$ & $9.97\times10^{-3}$ & $3.31$ & $9.2\times10^{-5}$ \\
+tree, $p{=}1$ & $664.6$ & $5.34\times10^{-4}$ & $2.94\times10^{-3}$ & $5.51$ & $9.6\times10^{-6}$ \\
+$k$-nn cutoff, $k{=}665$ & $665$ & $9.32\times10^{-1}$ & $1.79\times10^{-1}$ & $0.19$ & $4.5\times10^{-3}$ \\
+\midrule
+exact sum, for reference & --- & $0$ & $0$ & --- & $3.6\times10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The momentum column is $\|\sum_i m_i a_i\| / \sum_i m_i\|a_i\|$ from a single force
+evaluation: the exact sum conserves it to round-off, the tree violates it structurally (its far field
+omits the reaction), and the cutoff violates it \emph{more} --- $49\times$ more at $p{=}0$ --- because
+truncation is not antisymmetric. See Section~\ref{sec:conservation} for what that violation does over
+an integration. \emph{These numbers, and those of Appendix~\ref{app:critic}, are post-D8; the
+corresponding pre-D8 artifacts are retained as \texttt{knn\_baseline.json} and
+\texttt{lumyn\_critic\_bridge.json} for comparison, and differ by about an order of magnitude ---
+always in the direction of the corrected geometry being better.}
+
+
+\noindent\textbf{The mesh route, which is the one cosmology actually uses.} A $k$-NN cutoff is not how
+anyone computes gravity. The standard cheap solver is \emph{particle--mesh} (PM): deposit the masses on
+a grid, solve the Poisson equation with FFTs, difference the potential for the force, and interpolate
+back. It is $\mathcal{O}(N + M^3\log M)$ and it is what every production cosmology code uses for its
+long-range force, so the fair question is not whether a cutoff competes but whether a mesh does.
+We implemented one (\texttt{scripts/eval\_pm\_baseline.py}) and validated the solver independently
+before trusting any comparison: on a smooth analytic density $\rho\propto\cos(kx)$ it reproduces the
+exact force to $2\times10^{-4}$ at $k\,dx=0.10$ and $1.3\times10^{-2}$ at $k\,dx=0.79$, i.e.\ with the
+$(k\,dx)^2$ signature a second-order finite-difference Poisson solver must have
+(\texttt{scripts/\_diag\_pm\_smooth.py}).
+
+\textbf{Two conventions had to be reconciled first, and getting this wrong inflates PM's error by
+$80$ percentage points.} A periodic FFT-Poisson solve drops the $k{=}0$ mode, which is the field of
+the box's own mean density; an isolated tree and a brute-force pair sum both carry it. In this box
+($L=25$ Mpc/$h$, $\bar\rho=0.955$) that term has mean magnitude $44.6$, against an isolated force of
+$54.6$ --- so it is $2.3\times$ the \emph{peculiar} part and dominates the total. Measuring a periodic
+PM against an isolated reference therefore reports $98\%$ where the mesh is only responsible for
+$18\%$. We compute the uniform-box field by summation rather than from Gauss's law, because
+$(4\pi G\bar\rho/3)\,r$ is the field inside a uniform \emph{sphere} and this box is a cube, where that
+formula is $8\%$ wrong (\texttt{scripts/\_diag\_pm\_peculiar.py}). The table below puts PM on the
+isolated convention, the same one the operator is measured in.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+engine & part./cell & force rel.\ err & tidal rel.\ err & cost (s) & what the cost buys \\
+\midrule
+tree, $p{=}0$, $\theta{=}0.5$ & --- & $\mathbf{2.76\times10^{-3}}$ & $\mathbf{3.19\times10^{-2}}$ & $31.4$ & tree + $1{,}024$-node field \\
+PM $64^{3}$ & $8.77$ & $1.98\times10^{-1}$ & $9.60\times10^{-1}$ & $6.4$ & the whole $2.3$M-node field \\
+PM $128^{3}$ & $1.10$ & $1.90\times10^{-1}$ & $9.12\times10^{-1}$ & $8.8$ & the whole $2.3$M-node field \\
+PM $256^{3}$ & $0.14$ & $1.80\times10^{-1}$ & $7.84\times10^{-1}$ & $21.5$ & the whole $2.3$M-node field \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Real CAMELS snapshot, $N=2.3$M, $Q=1{,}024$, $\theta=0.5$, $\texttt{max\_leaf}=8$, per-node
+mean relative error, $\epsilon=10^{-4}$; artifacts \texttt{outputs/pm\_baseline\_n2M3.json} and, at
+$N=10^{5}$, \texttt{outputs/pm\_baseline\_n100k.json}. The tree row costs more than any PM row while
+evaluating $1{,}024$ nodes rather than $2.3$M: \textbf{the mesh is roughly two orders of magnitude
+cheaper, and that is the honest half of this appendix.}
+
+\noindent\textbf{What PM's error is, and is not.} Refining the mesh by $16\times$ moves the force error
+from $1.98$ to $1.80\times10^{-1}$: it does not converge. That is not a defect of our implementation
+--- the analytic control above rules that out --- it is what a mesh method does to this quantity. A
+mesh represents the \emph{field}; the per-node acceleration in a clustered particle distribution is
+dominated by structure \emph{below the cell}, which a deposited density cannot carry and a `cloud'
+assignment cannot read back. Against a reference smoothed at the cell scale PM's error improves but
+never collapses (best $53\%$ over $\epsilon=10^{-4}$ to $1.6$;
+\texttt{scripts/\_diag\_pm\_smoothing.py}), and the residual against an unsmoothed reference is
+exactly the sub-cell part that production codes supply with a short-range direct sum. That pairing is
+tree--PM, and its accuracy at small scales is set by the short-range cutoff --- which is the regime the
+$k$-NN baseline above already characterises.
+
+\noindent\textbf{The tidal tensor is where a mesh is worst.} PM's tidal error is $4$--$5\times$ its
+force error at every mesh ($0.78$--$0.96$ against $0.18$--$0.20$), and again barely responds to
+resolution. The tidal tensor is a \emph{difference} of forces, so it weights the small-scale structure
+that the deposition removes more heavily than the force does. This is the same ordering the operator
+itself shows at scale (its tidal error is $2.6$--$10.8\times$ its force error), and it is the reason a
+mesh is a poor substitute for this operator's contract even where it is affordable.
+
+\noindent\textbf{One structural difference worth recording.} PM's tidal tensor is not traceless: its
+trace is $4\pi G(\rho_{\rm dep}-\bar\rho)$, which the finite-difference construction returns exactly
+and which at coarse particle loading is dominated by deposition shot noise (mean $|\mathrm{tr}|$ rises
+from $8.3$ at $M=64$ to $34.9$ at $M=256$ as particles per cell fall from $8.8$ to $0.14$, tracking
+$4\pi G\bar\rho/\sqrt{N_{\rm pc}}$). The brute-force pair sum, and therefore this operator, is traceless
+to machine precision because it is the Jacobian of a softened pairwise kernel. Neither is wrong; they
+answer different questions, and the trace-removed PM column above is the comparison that does not
+depend on which convention is chosen.
+
+\section{Cross-check with an independent conservation critic}\label{app:critic}
+Section~\ref{sec:conservation} concludes that the operator's non-conservativity is a momentum effect
+and not an energy effect. That conclusion was reached from the solver side; here it is checked from
+the critic side, using an independent implementation: a conservation-law critic built for a
+physically-grounded scene-generation engine, whose four normalised drift channels are energy,
+angular momentum, momentum and centre of mass. The critic's default weights are angular $+$ momentum,
+chosen because its authors measured angular and momentum to be $88$--$100\%$ and $85$--$100\%$
+discriminative while \emph{energy was only $56$--$60\%$}. Feeding it the trajectories of
+Section~\ref{sec:conservation} (same initial conditions, $150$ steps, $\theta=0.5$, softening
+$0.05$, $N=2{,}000$) reproduces their finding from the other end:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+force used & energy & angular & momentum & centre of mass \\
+\midrule
+exact & $1.69\times10^{-4}$ & $1.20\times10^{-6}$ & $1.94\times10^{-8}$ & $1.30\times10^{-8}$ \\
+operator, $p{=}0$ & $6.04\times10^{-4}$ & $2.33\times10^{-3}$ & $1.90\times10^{-4}$ & $9.81\times10^{-6}$ \\
+operator, $p{=}1$ & $5.12\times10^{-4}$ & $3.83\times10^{-4}$ & $1.76\times10^{-5}$ & $1.31\times10^{-6}$ \\
+\midrule
+ratio to exact, $p{=}0$ & $3.6$ & $1.9\times10^{3}$ & $9.8\times10^{3}$ & $7.6\times10^{2}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Swapping the exact force for this operator moves the energy channel by a factor of $3.6$
+and the two channels that critic weights by three to four orders of magnitude. So the channel weighting
+is not a heuristic: \emph{it follows from the structure of the force approximation}. One detail is
+worth recording because it was not obvious to us: \textbf{the angular-momentum channel is the more
+sensitive of the two} ($12\times$ the momentum drift here, $20\times$ under the pre-D8 geometry), since
+the reaction force this operator omits would act on a cell's members at large distance, so the torque
+error carries an extra factor of $r$. Both channels fall by $6$--$11\times$ when the quadrupole is
+retained, consistent with $p{=}1$ reducing the far-field error throughout. Script
+\texttt{scripts/bridge\_lumyn\_critic.py}, artifact
+\texttt{outputs/lumyn\_critic\_bridge\_postd8.json}.
+
+\noindent\textbf{The solver-side measurement.} The table summarised in
+Section~\ref{sec:conservation} is the over-time counterpart of the critic channels above: $150$
+leapfrog steps at $N=2{,}000$, $\theta=0.5$, softening $0.05$, initial conditions with zero net
+momentum (\texttt{scripts/eval\_conservation\_drift.py}, \texttt{outputs/conservation\_drift.json}).
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+force used & $\|\sum_i m_i v_i\|$ & energy drift $|\Delta E/E_0|$ & barycentre $\|\bar x\|$ \\
+\midrule
+exact & $1.2\times10^{-4}$ & $5.0\times10^{-5}$ & $1.1\times10^{-6}$ \\
+operator, $p{=}0$ & $1.4\times10^{0}$ & $2.3\times10^{-4}$ & $4.6\times10^{-4}$ \\
+operator, $p{=}1$ & $1.1\times10^{-1}$ & $1.6\times10^{-4}$ & $6.2\times10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Momentum is violated by $1.1\times10^{4}\times$ the exact run's, and the two series are
+qualitatively different rather than merely different in size: the operator's violation is monotone and
+linear in time, whereas the exact run's is bounded and does not grow --- it is the cancellation floor of
+a near-zero vector sum in \texttt{float32}, the integrator being momentum-symmetric. It is a
+structural defect that more multipole order reduces ($12\times$ at $p{=}1$) but cannot remove, while
+energy drift stays the \emph{same order} as the exact run's ($4.7\times$ at $p{=}0$, $3.3\times$ at
+$p{=}1$), because it is set by the integrator and the approximate force remains close enough to the
+gradient of some potential that no secular energy error appears. Script
+\texttt{scripts/eval\_conservation\_drift.py}, artifact
+\texttt{outputs/conservation\_drift\_postd8.json}; the pre-D8 counterpart
+\texttt{conservation\_drift.json} gave a $p{=}0$ momentum violation of $10.4$, and is retained for
+comparison.
+
+\section{Reproducibility details}\label{app:repro}
+\noindent\textbf{Data.} CAMELS IllustrisTNG $L25n256$, realisation \texttt{CV\_14},
+\texttt{snapshot\_014} ($z\approx6$, box $25$\,Mpc/$h$, $\Omega_m=0.3$, $h=0.6711$). Download:
+\texttt{scripts/download\_camels.py} (public Flatiron mirror; the CAMELS public data release
+\citep{camels2023} is the durable route if the mirror path changes). Reader/adapter:
+\texttt{src/laniakea\_hmmp/data/camels.py}. $\mathrm{PartType1}$ dark matter, $16.7$M particles
+subsampled to $2.3$M.
+
+\noindent\textbf{Operator configuration.} Opening angle $\theta=0.5$ and monopole only ($p=0$) unless
+a setting is explicitly varied; softening $\epsilon=10^{-4}$; octree \texttt{max\_leaf}$=16$,
+\texttt{max\_depth}$=20$ (sweeps) or $24$ (exact-N-body check). Positions rescaled to
+$[0,25)$\,Mpc/$h$. The octree and interaction list are built once per particle set and cached across
+repeated evaluations, which is the configuration the memory numbers assume.
+
+\noindent\textbf{Script $\rightarrow$ result.} \texttt{scripts/exact\_nbody.py}
+(Table~\ref{tab:exact}); \texttt{scripts/sweep\_multipole\_order.py}
+(Table~\ref{tab:ordersweep} and the $\theta=0.70$ breakdown);
+\texttt{scripts/exact\_nbody\_sampled.py} via \texttt{scripts/rerun\_sampled\_validation.sh}
+(Table~\ref{tab:sampled}; run with and without \texttt{-{}-quadrupole});
+\texttt{scripts/sweep\_multipole\_order\_tidal.py} (the tidal order shift) and
+\texttt{scripts/\allowbreak sweep\_multipole\_order\_tidal\_camels.py} (the same on the real snapshot, the two
+tables of Section~\ref{sec:order}, and Appendix~\ref{app:surface} with
+\texttt{-{}-opening-mode surface});
+\texttt{scripts/eval\_tidal\_eigenmetrics.py} (Section~\ref{sec:physics} and
+Appendix~\ref{app:surface}); \texttt{scripts/diagnose\_aggregate\_vs\_percell.py}
+(Appendix~\ref{app:percell});
+\texttt{scripts/scaling.py} (Table~\ref{tab:time} and the opening-angle error curve);
+\texttt{scripts/benchmark\_memory.py} (Tables~\ref{tab:mem} and~\ref{tab:memdeep}).
+The theory note \texttt{docs/DERIVATION.md} records the bound's assumptions and closure, and
+\texttt{docs/PROVENANCE.md} maps every number in this paper to the artifact that produced it,
+including every defect listed above.
+
+\noindent\textbf{Numerical reproducibility of the sampled statistics.} The far field is accumulated
+with \texttt{index\_add\_} on the GPU, whose reduction order is not fixed, so repeated identical runs
+do not return identical digits. Measured on three identical $2.3$M runs: the $p{=}0$ statistics agree
+to ${\sim}10^{-7}$ relative (float32 round-off), while the $p{=}1$ statistics vary at the
+${\sim}0.4\%$ level --- larger only because the error being measured is $\sim3\times$ smaller, not
+because the quadrupole path is unstable. Both are well below the query-sampling uncertainty above
+($1.2$--$1.7\%$), which is the spread we quote. Where this paper says a re-run ``reproduced'' an
+earlier number, it means agreement at the quoted precision, not bit-identity.
+
+\noindent\textbf{Hardware.} $1\times$NVIDIA A800 80\,GB. Every number in this paper is from a single
+device; the $2.3$M row is a forward pass, not a distributed training run.
+
+\noindent\textbf{Code version and tests.} All reported numbers were produced from repository state
+tagged \texttt{v1.7-paper} (\texttt{git tag -n v1.7-paper}), which carries the D8 geometry fix and the
+15-seed re-measurement of Table~\ref{tab:vjp}. \texttt{v1.6-paper} has the same geometry fix but the
+previous 12-seed version of that table.
+\textbf{The \texttt{v1.0-paper} and \texttt{v1.1-paper} tags predate D6 and D8 respectively and must
+not be used for any number in this paper; \texttt{v1.4-paper} lacks the crossover measurement of
+Section~\ref{sec:scaling} and the holdout of Appendix~\ref{app:percell}; \texttt{v1.3-paper} is
+the same manuscript under the operator's former name and must not be cited by it; and
+\texttt{v1.2-paper} predates the post-D8 cost
+re-measurement,
+the corrected real-data order-shift numbers and the real-data gradient experiment, and must not be used
+for those.} Dependencies are pinned in \texttt{pyproject.toml}. The CPU
+test suite passes in full ($81$ tests, including the $11$ that pin the second-derivative reference to
+the autograd Jacobian); \texttt{tests/test\_camels\_adapter.py} additionally requires \texttt{h5py}
+and is the one module that cannot be collected without it.
+

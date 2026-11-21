@@ -1,0 +1,17 @@
+# Normalize line endings: LF in the repository, LF in the working tree too, so that
+# a clone on Windows produces byte-identical .tex files to a clone on macOS/Linux.
+# (Without this, git rewrites LF to CRLF on checkout and every diff looks rewritten.)
+* text=auto eol=lf
+
+# LaTeX and prose sources: always LF.
+*.tex  text eol=lf
+*.bib  text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+
+# Binary assets must never be converted or diffed as text.
+*.pdf  binary
+*.png  binary
+
+# Shell scripts, if any are added later, should keep LF so they run on any host.
+*.sh   text eol=lf

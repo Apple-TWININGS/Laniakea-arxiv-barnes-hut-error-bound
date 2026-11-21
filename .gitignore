@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+outputs/
+data_cache/
+figures/*.pdf
+!figures/fig_error_vs_N.pdf
+!figures/fig_mean_vs_worst.pdf
+!figures/fig_dehnen_vs_second.pdf
+*.aux
+*.out
+*.log
